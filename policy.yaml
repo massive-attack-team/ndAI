@@ -1,0 +1,74 @@
+# NDAi policy. Edited by security, not by engineers.
+# Risk is not a property of the text alone:
+#   risk = sensitivity x destination x who is sending it
+
+destinations:
+  # Runs inside our network or under a contract with no retention.
+  private_local:
+    - localhost
+    - ollama.internal
+    - llm.kestrelbio.internal
+  # Vetted vendor, enterprise agreement, zero-retention endpoint.
+  enterprise_vetted:
+    - console.anthropic.com
+    - platform.openai.com
+    - bedrock.aws.amazon.com
+  # Consumer web products. Personal accounts are common here.
+  public_consumer:
+    - chatgpt.com
+    - chat.openai.com
+    - claude.ai
+    - gemini.google.com
+    - copilot.microsoft.com
+    - perplexity.ai
+  # Anything not listed resolves to "unknown" and is treated as public_consumer
+  # plus one step stricter.
+
+roles:
+  researcher: {clearance: 3}
+  engineer: {clearance: 2}
+  contractor: {clearance: 1}
+  default: {clearance: 2}
+
+# Sensitivity tiers: 0 public, 1 internal, 2 confidential, 3 restricted.
+# First matching rule wins. Order matters.
+rules:
+  - name: credentials never leave
+    when: {has_critical_secret: true}
+    then: block
+    message: A live credential was found in this text. Rotate it if it has already been sent anywhere.
+
+  - name: restricted to unknown destination
+    when: {min_sensitivity: 3, destinations: [unknown, public_consumer]}
+    then: block
+    message: Restricted material cannot go to a consumer AI product. Use the internal model, or ask for an exception.
+
+  - name: restricted to vetted vendor
+    when: {min_sensitivity: 3, destinations: [enterprise_vetted]}
+    then: sanitize
+    message: Restricted material. Sending a minimum-context version instead.
+
+  - name: confidential to consumer AI
+    when: {min_sensitivity: 2, destinations: [public_consumer, unknown]}
+    then: sanitize
+    message: This looks like internal material. Sending a minimum-context version instead.
+
+  - name: confidential to vetted vendor
+    when: {min_sensitivity: 2, destinations: [enterprise_vetted]}
+    then: warn
+    message: Confidential, but the destination is covered by an enterprise agreement. Logged.
+
+  - name: contractor sending anything internal
+    when: {min_sensitivity: 1, roles: [contractor]}
+    then: warn
+    message: Contractor account. Internal material is logged for review.
+
+  - name: internal to private model
+    when: {min_sensitivity: 1, destinations: [private_local]}
+    then: allow
+    message: Stays on the network.
+
+  - name: default
+    when: {}
+    then: allow
+    message: Nothing sensitive detected.
