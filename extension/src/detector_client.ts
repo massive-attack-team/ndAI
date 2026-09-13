@@ -9,14 +9,15 @@ export function destination(): string {
   return document.documentElement.dataset.ndaiDestination || location.hostname;
 }
 
-export function inspect(text: string): Promise<Inspection> {
+/** `dest` is passed explicitly from extension pages, whose own hostname is the extension id. */
+export function inspect(text: string, dest: string = destination()): Promise<Inspection> {
   if (DETECTOR_MODE === "live" && hasRuntime()) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ type: "inspect", text, href: location.href }, (res?: Inspection) => {
+      chrome.runtime.sendMessage({ type: "inspect", text, destination: dest, href: location.href }, (res?: Inspection) => {
         if (chrome.runtime.lastError || !res) reject(new Error(chrome.runtime.lastError?.message ?? "no response"));
         else resolve(res);
       });
     });
   }
-  return mockInspect(text, destination());
+  return mockInspect(text, dest);
 }

@@ -75,6 +75,7 @@
       <label class="tool" title="Attach file">📎 Attach<input type="file" id="file" multiple hidden /></label>
       <button class="tool" type="button" data-sample="env">+ sample .env</button>
       <button class="tool" type="button" data-sample="memo">+ sample memo.md</button>
+      <button class="tool" type="button" data-sample="pdf">+ sample board-memo.pdf</button>
       <div class="attachments" id="attachments"></div>
       <button id="send" data-testid="send-button" aria-label="Send prompt" type="button">↑</button>
     </div>
@@ -180,12 +181,14 @@
   const SAMPLES = {
     env: ["prod.env", "text/plain", "DATABASE_URL=postgresql://kestrel:8fh39dkw0slq@db.internal:5432/compounds\nOPENAI_API_KEY=sk-proj4f8a9b2c7d1e6f0a3b5c8d9e\nLOG_LEVEL=info\n"],
     memo: ["board-prep.md", "text/markdown", "# Board prep\n\nWe are thinking about buying a microfluidics company for just under four hundred million, mostly cash with some stock.\n\nCohort four dosing started this week, testing the intermittent schedule proposed after cohort three: three days on, two days off, versus the continuous dosing used in cohorts one through three.\n"],
+    // Any PDF works: the mock sanitizer ignores its contents. Needs `npm run preview` (fetch doesn't work on file://).
+    pdf: ["board-memo.pdf", "application/pdf", () => fetch("samples/board-memo.pdf").then((r) => r.arrayBuffer())],
   };
   // Synthetic attach: sets input.files and fires change, exactly what a real pick produces.
-  document.querySelectorAll("[data-sample]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-sample]").forEach((b) => b.addEventListener("click", async () => {
     const [name, type, body] = SAMPLES[b.dataset.sample];
     const dt = new DataTransfer();
-    dt.items.add(new File([body], name, { type }));
+    dt.items.add(new File([typeof body === "function" ? await body() : body], name, { type }));
     fileInput.files = dt.files;
     fileInput.dispatchEvent(new Event("change", { bubbles: true }));
   }));

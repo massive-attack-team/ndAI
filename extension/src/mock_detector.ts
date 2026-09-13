@@ -9,6 +9,7 @@
 // Scores are fixed per rule. They exist so the evidence line in the UI has
 // realistic content, not to approximate the embedding model.
 
+import { applyEdits, type Edit } from "./edits";
 import { placeholderFor } from "./tiers";
 import type {
   Action, Confidence, DestinationClass, DetectionFinding, DocType, Finding, Inspection, SecretFinding,
@@ -230,19 +231,6 @@ function evaluate(subject: { sensitivity: number; confidence?: Confidence; criti
 
 const FIGURE = /(?<![\w\-[])(?:\$\s?)?\d+(?:[.,]\d+)*\s?(?:%|mg\/kg|million|billion|bn\b|m\b|k\b)?/gi;
 
-interface Edit { start: number; end: number; replacement: string }
-
-function applyEdits(text: string, edits: Edit[]): string {
-  // Widest edit wins where two overlap (e.g. an email inside a connection string).
-  const kept: Edit[] = [];
-  for (const e of [...edits].sort((a, b) => (b.end - b.start) - (a.end - a.start))) {
-    if (!kept.some((k) => e.start < k.end && k.start < e.end)) kept.push(e);
-  }
-  let out = text;
-  for (const e of kept.sort((a, b) => b.start - a.start)) out = out.slice(0, e.start) + e.replacement + out.slice(e.end);
-  return out.replace(/[ \t]{2,}/g, " ");
-}
-
 function rewrite(text: string, secrets: SecretFinding[], hits: Hit[]): string {
   const edits: Edit[] = secrets.map((s) => ({ start: s.span[0], end: s.span[1], replacement: placeholderFor(s.label) }));
   for (const { finding, rule } of hits) {
@@ -251,7 +239,7 @@ function rewrite(text: string, secrets: SecretFinding[], hits: Hit[]): string {
     for (const [rx, to] of rule.generalize ?? []) chunk = chunk.replace(rx, to);
     edits.push({ start: a, end: b, replacement: chunk.replace(FIGURE, "[figure]") });
   }
-  return applyEdits(text, edits);
+  return applyEdits(text, edits, true);
 }
 
 /** Span-level redaction for file uploads, where the policy may block but a safe copy is still wanted. */

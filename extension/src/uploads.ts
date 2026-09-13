@@ -24,6 +24,11 @@ export interface FileReview {
 const isTextual = (f: File) =>
   f.type.startsWith("text/") || /json|xml|yaml|csv|javascript/.test(f.type) || TEXT_EXT.test(f.name);
 
+const isPdf = (f: File) => f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+
+/** PDFs and text files go through the review page; everything else uses the inline panel. */
+export const isDocument = (f: File) => isPdf(f) || isTextual(f);
+
 const safeName = (name: string) => name.replace(/(\.[^.]+)?$/, ".redacted$1");
 
 export async function reviewFile(file: File): Promise<FileReview> {

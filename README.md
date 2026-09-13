@@ -52,7 +52,12 @@ npm run preview                                # fake chat page: http://localhos
 
 Load `extension/` at `chrome://extensions` with Developer mode on, click the
 NDAi toolbar icon, press **Activate NDAi**, and type or paste something from
-`corpus/internal/` into ChatGPT. The extension uses an in-browser mock detector
+`corpus/internal/` into ChatGPT. Uploading a PDF or text file holds the upload,
+shows a notice with a link to the extension's review page, and only sends a
+sanitized copy once every proposed change has been approved or kept. In the
+preview, use **+ sample board-memo.pdf**. Document extraction and the sanitized
+output are front-end mocks (`extension/src/review/mock_sanitizer.ts`) until the
+backend provides them. The extension uses an in-browser mock detector
 by default (`extension/src/config.ts`); set `DETECTOR_MODE = "live"` to call the
 local service instead.
 

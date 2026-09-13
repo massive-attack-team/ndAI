@@ -8,11 +8,15 @@
 // transaction instead of a DOM it didn't produce.
 
 import css from "./overlay_styles.css";
-import { hasRuntime, inspect } from "./detector_client";
+import { destination, hasRuntime, inspect } from "./detector_client";
+import { fill, h, type Child } from "./dom";
+import { cancelReview, createReview, onReviewEvent, openReview } from "./review/channel";
+import type { ReviewSummary } from "./review/types";
+import { showNotice } from "./upload_notice";
 import {
   TIER_RANK, TIER_WORD, VERDICT, actionTier, describeFinding, findingKey, findingTier, maxTier, minTier,
 } from "./tiers";
-import { installUploadGuard, reviewFile } from "./uploads";
+import { installUploadGuard, isDocument, reviewFile } from "./uploads";
 import type { Finding, Inspection, Tier } from "./types";
 
 const DEBOUNCE_MS = 450;     // typing pause before a check runs
@@ -229,19 +233,6 @@ function place(el: HTMLElement, anchor: DOMRect, prefer: "below" | "above", alig
 
 // ---- DOM helpers (our shadow tree only) -----------------------------------------
 
-type Child = Node | string | null | undefined | false;
-
-function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, ...children: Child[]) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-  for (const c of children) if (c) el.append(c); // strings become text nodes, never markup
-  return el;
-}
-
-function fill(el: HTMLElement, ...children: Child[]): void {
-  el.replaceChildren(...children.filter((c): c is Node | string => !!c));
-}
-
 const chip = (tier: Tier) => h("span", { class: "ndai-chip", "data-tier": tier }, TIER_WORD[tier]);
 const dot = (tier: Tier) => h("span", { class: "ndai-dot", "data-tier": tier, "aria-hidden": "true" });
 const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
@@ -326,7 +317,7 @@ class Inspector {
     this.card = h("div", { class: "ndai-card", role: "dialog", "aria-label": "NDAi finding", hidden: "" });
     this.panel = h("div", { class: "ndai-panel", role: "dialog", "aria-modal": "false", "aria-labelledby": "ndai-panel-title", hidden: "" });
     this.toasts = h("div", { class: "ndai-toasts", "aria-live": "polite" });
-    root.append(h("style", {}, css), this.marksLayer, this.badge, this.card, this.panel, this.toasts);
+    root.append(h("style", {}, css), this.marksLayer, this.badge, this.card, this.panel, this.toasts, this.notices);
 
     this.badge.addEventListener("click", () => void this.openSummary("review"));
     this.card.addEventListener("keydown", (e) => { if (e.key === "Escape") this.closeCard(true); });
@@ -867,7 +858,82 @@ class Inspector {
 
   // -- uploads ------------------------------------------------------------------------------------------------
 
+  private readonly notices = h("div", { class: "ndai-notices" });
+
+  /**
+   * PDFs and text files are sanitized and held until every change is decided
+   * on the review page. Other files (images, archives) fall back to the inline
+   * panel, as do documents the sanitizer couldn't read.
+   */
   reviewFiles = async (files: File[]): Promise<File[] | null> => {
+    let passed: File[] = [];
+    let others = files.filter((f) => !isDocument(f));
+    const docs = files.filter(isDocument);
+    if (docs.length) {
+      const result = await this.reviewDocuments(docs);
+      if (!result) return null;
+      passed = result.files;
+      others = [...others, ...result.failed];
+    }
+    if (!others.length) return passed;
+    const rest = await this.reviewOtherFiles(others);
+    return rest && [...passed, ...rest];
+  };
+
+  private async reviewDocuments(docs: File[]): Promise<{ files: File[]; failed: File[] } | null> {
+    const names = docs.map((d) => d.name);
+    let summary: ReviewSummary | null = null;
+    let settle: ((files: File[] | null) => void) | null = null;
+
+    const notice = showNotice(this.notices, {
+      open: () => {
+        if (!summary) return;
+        openReview(summary);
+        notice.update({ kind: "opened", summary });
+      },
+      cancel: () => {
+        if (!summary) return;
+        void cancelReview(summary.id);
+        settle?.(null);
+      },
+    });
+    notice.update({ kind: "processing", names });
+
+    try {
+      summary = await createReview(docs, destination());
+    } catch (err) {
+      // Fail closed: a document that couldn't be checked isn't uploaded.
+      notice.update({ kind: "error", message: `${err instanceof Error ? err.message : String(err)} The upload was cancelled.` });
+      return null;
+    }
+    const s = summary;
+    const clean = docs.filter((_, i) => s.inputs[i]?.status === "clean");
+    const failed = docs.filter((_, i) => s.inputs[i]?.status === "failed");
+
+    if (!s.inputs.some((r) => r.status === "changes")) {
+      notice.remove();
+      if (clean.length) this.toast(clean.length === 1 ? `${clean[0].name}: nothing sensitive found` : `${clean.length} files checked: nothing sensitive found`);
+      return { files: clean, failed };
+    }
+
+    notice.update({ kind: "ready", summary: s });
+    const approved = await new Promise<File[] | null>((resolve) => {
+      const stop = onReviewEvent((e) => {
+        if (e.id === s.id) done(e.type === "review:finished" ? e.files : null);
+      });
+      const done = (result: File[] | null) => { stop(); settle = null; resolve(result); };
+      settle = done;
+    });
+
+    if (!approved) {
+      notice.update({ kind: "cancelled", names });
+      return null;
+    }
+    notice.update({ kind: "done", names: approved.map((f) => f.name), host: s.host });
+    return { files: [...approved, ...clean], failed };
+  }
+
+  private reviewOtherFiles = async (files: File[]): Promise<File[] | null> => {
     const reviews = await Promise.all(files.map((f) => reviewFile(f)));
     const worst = reviews.reduce<Tier>((t, r) => maxTier(t, r.tier), "green");
     if (worst === "green") {

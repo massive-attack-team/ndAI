@@ -10,8 +10,12 @@
   --ndai-ink: #1b2021;
   --ndai-muted: #5f6661;
   --ndai-line: #dcdfd9;
-  --ndai-accent: #2a4b7c;
-  --ndai-accent-ink: #f7f8f5;
+  --ndai-accent: #3A86FF;
+  --ndai-accent-ink: #ffffff;
+  --ndai-link: #1D5FD0;
+  --ndai-lavender: #BDB2FF;
+  --ndai-pink: #FFD6E0;
+  --ndai-blush: #FFF4F4;
   --ndai-shadow: 0 12px 32px rgba(20, 24, 25, 0.18), 0 2px 6px rgba(20, 24, 25, 0.08);
 
   --ndai-green: #3f7a52;
@@ -35,8 +39,10 @@
     --ndai-ink: #e8ebe6;
     --ndai-muted: #a3aaa5;
     --ndai-line: #363c3d;
-    --ndai-accent: #7ea3d9;
-    --ndai-accent-ink: #10151c;
+    --ndai-accent: #6FA5FF;
+    --ndai-accent-ink: #0B1426;
+    --ndai-link: #9CC2FF;
+    --ndai-blush: #2A2430;
     --ndai-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
     --ndai-green: #6fbf8a;
     --ndai-yellow: #e5a948;
@@ -271,6 +277,115 @@
   box-shadow: var(--ndai-shadow);
   animation: ndai-in 140ms ease-out;
 }
+
+/* ---- upload notice (top-right) -------------------------------------------------- */
+
+.ndai-notices {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(384px, calc(100vw - 32px));
+}
+.ndai-notice {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px 16px 14px 14px;
+  pointer-events: auto;
+  background: var(--ndai-bg);
+  color: var(--ndai-ink);
+  border: 1px solid var(--ndai-line);
+  border-radius: 14px;
+  box-shadow: var(--ndai-shadow);
+  animation: ndai-drop 180ms ease-out;
+}
+.ndai-notice::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ndai-accent), var(--ndai-lavender) 60%, var(--ndai-pink));
+}
+.ndai-notice-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--ndai-blush);
+  color: var(--ndai-accent);
+}
+.ndai-notice[data-state="done"] .ndai-notice-icon { background: color-mix(in srgb, var(--ndai-lavender) 35%, var(--ndai-bg)); }
+.ndai-notice[data-state="error"] .ndai-notice-icon { background: var(--ndai-pink); color: var(--ndai-red); }
+.ndai-notice[data-state="processing"] .ndai-notice-icon::after {
+  content: "";
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid var(--ndai-lavender);
+  border-top-color: var(--ndai-accent);
+  border-radius: 50%;
+  animation: ndai-spin 800ms linear infinite;
+}
+.ndai-notice-eyebrow {
+  margin: 0 0 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ndai-muted);
+}
+.ndai-notice[data-state="ready"] .ndai-notice-eyebrow { color: var(--ndai-link); }
+.ndai-notice-title { margin: 0; padding-right: 16px; font-size: 14px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+.ndai-notice-text { margin: 4px 0 0; font-size: 12.5px; color: var(--ndai-muted); }
+.ndai-notice-docs { margin: 8px 0 0; padding: 0; list-style: none; font-size: 12px; }
+.ndai-notice-docs li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-top: 1px solid var(--ndai-line); }
+.ndai-notice-linkrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ndai-lavender) 22%, var(--ndai-bg));
+  min-width: 0;
+}
+.ndai-notice-linklabel { flex: none; font-size: 11px; font-weight: 600; color: var(--ndai-muted); }
+.ndai-notice-link {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ndai-link);
+  font: 12px ui-monospace, "SF Mono", Menlo, monospace;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ndai-notice-link:focus-visible { outline: 2px solid var(--ndai-accent); outline-offset: 2px; border-radius: 2px; }
+.ndai-notice .ndai-actions { margin-top: 12px; }
+.ndai-notice .ndai-btn-primary { padding: 6px 14px; border-radius: 8px; font-weight: 600; }
+.ndai-notice-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ndai-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ndai-notice-close:hover { background: var(--ndai-surface); color: var(--ndai-ink); }
+@keyframes ndai-drop { from { opacity: 0; translate: 0 -8px; } }
+@keyframes ndai-spin { to { rotate: 360deg; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
