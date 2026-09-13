@@ -51,8 +51,8 @@ rules:
   # the same kind of destination, enough of one internal document is out.
   - name: pieced together across prompts
     when: {confidence: [cumulative], min_sensitivity: 2, destinations: [public_consumer, unknown]}
-    then: block
-    message: Earlier prompts already sent parts of this internal document to consumer AI, and this one adds more.
+    then: sanitize
+    message: Earlier prompts already sent parts of this internal document to consumer AI, and this one adds more. Sending a minimum-context version instead - if that isn't possible, this gets blocked instead.
 
   - name: weak signal, unconfirmed
     when: {confidence: [weak], min_sensitivity: 2}
