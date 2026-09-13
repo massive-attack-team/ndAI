@@ -1,6 +1,6 @@
 """Stage 2: does this text derive from our internal corpus?
 
-This is the only part of NDAi that is genuinely novel, so it is the part
+This is the only part of ndAI that is genuinely novel, so it is the part
 the eval harness measures. Everything else is plumbing around it.
 
 Two indexes are built: internal documents and known-public documents from the
@@ -187,7 +187,10 @@ class ProvenanceDetector:
         # as false positives. The margin is what's actually discriminating
         # here, verbatim or not; keep it required for every hit - `margin`
         # just lets detection.py ask for a lower bar (CONTEXT_MARGIN) to
-        # collect near misses, not skip the check.
+        # collect near misses, not skip the check. detector/calibration.py's
+        # per-type adjustment is applied one layer up, in detection.py, when
+        # it decides which of these hits count as a finding versus a near
+        # miss - this method stays a single, uncalibrated floor.
         eligible = (int_scores >= config.PROVENANCE_HIT) & (margins >= margin)
 
         hits = []

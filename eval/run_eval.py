@@ -107,7 +107,7 @@ def main() -> None:
 
     misses = df[(df.system == "ndai") & (df.leak) & (~df.flagged)]
     if len(misses):
-        print(f"\nNDAi missed {len(misses)}:")
+        print(f"\nndAI missed {len(misses)}:")
         for i in misses["sample"]:
             print("  -", SAMPLES[i].text[:90])
 

@@ -50,13 +50,17 @@ ESCALATION: dict[str, str] = {
 }
 
 REASONS = {
-    "redact":     "Matched internal {doc_type} ({source}) — specific removed",
-    "generalise": "Matched internal {doc_type} ({source}) — rewritten at a general level",
-    "remove":     "Rewriting still matched internal {doc_type} — sentence dropped",
+    "redact":     "Matched internal {doc_type} ({source}): specific detail removed",
+    "generalise": "Matched internal {doc_type} ({source}): rewritten at a general level",
+    "remove":     "Rewriting still matched internal {doc_type}: sentence dropped",
 }
 
 
 def decide(finding: Finding, escalations: int = 0) -> str:
+    # Reasoning-task prompts ("verify this proof") are caught whole-prompt,
+    # before any finding reaches this function - see sanitiser/service.py,
+    # which checks detector/rewrite.py's REASONING_MARKERS (one shared
+    # constant, not a copy that can drift) and blocks outright.
     base = POLICY.get((finding.tier, finding.confidence), "generalise")
     for _ in range(escalations):
         base = ESCALATION.get(base, "block")

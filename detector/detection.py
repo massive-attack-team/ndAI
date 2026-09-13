@@ -1,8 +1,7 @@
-"""Person 2's deliverable: text in, DetectionResult out.
+"""Text in, DetectionResult out. Shape is fixed by CONTRACT.md #2.
 
-Shape is fixed by CONTRACT.md #2 - build against that, not against how the
-response/policy side (Person 1) ends up consuming it. This module doesn't
-touch pipeline.py or policy.py.
+This module does not touch pipeline.py or policy.py, and does not need to
+know how the response/policy side consumes its output.
 
 Two sources of findings, per sentence:
 
@@ -26,7 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import categories, config, provenance
+from . import calibration, categories, config, provenance
 
 
 @dataclass
@@ -124,7 +123,17 @@ def detect(text: str) -> DetectionResult:
 
 def detect_with_near_misses(text: str) -> tuple[DetectionResult, list[NearMiss]]:
     all_hits = provenance.get_detector().check_all(text, margin=config.CONTEXT_MARGIN)
-    prov_hits = [h for h in all_hits if h.margin >= config.PUBLIC_MARGIN]
+    # detector/calibration.py's per-type adjustment on PUBLIC_MARGIN decides
+    # the finding-versus-near-miss line here, computed once per call rather
+    # than once per hit. A type with too little history, or a doc outside
+    # the 3 in-scope types (hit.type is None), falls back to the flat
+    # config.PUBLIC_MARGIN.
+    margin_by_type = calibration.margin_by_type()
+
+    def effective_margin(hit_type: str | None) -> float:
+        return margin_by_type.get(hit_type, config.PUBLIC_MARGIN)
+
+    prov_hits = [h for h in all_hits if h.margin >= effective_margin(h.type)]
     findings = _from_provenance_hits(prov_hits)
     covered_spans = [f.span for f in findings]
     findings.extend(_weak_findings(text, covered_spans))
@@ -140,6 +149,6 @@ def detect_with_near_misses(text: str) -> tuple[DetectionResult, list[NearMiss]]
             span=h.span, score=round(h.score, 3), margin=round(h.margin, 3),
         )
         for h in all_hits
-        if h.margin < config.PUBLIC_MARGIN and h.type in categories.TARGET_TYPES
+        if h.margin < effective_margin(h.type) and h.type in categories.TARGET_TYPES
     ]
     return result, near
