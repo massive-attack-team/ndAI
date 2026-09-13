@@ -5,6 +5,23 @@ ndAI checks what an employee pastes, types or uploads into an AI tool
 confidential material, then allows, warns, rewrites or blocks. The check runs
 on the employee's machine.
 
+## Try the product
+
+No backend to run — the extension build targets a hosted detector by default.
+
+1. Build it:
+   ```bash
+   cd extension && npm install && npm run build   # -> extension/dist/
+   ```
+2. Open `chrome://extensions`.
+3. Turn on **Developer mode**.
+4. Select **Load unpacked** and choose the `extension/` directory.
+5. Click the ndAI icon in the toolbar and select **Activate ndAI**.
+
+Paste something from `corpus/internal/` into ChatGPT, Claude or Gemini and
+watch it get flagged. To run against your own local detector instead of the
+hosted one, see [Getting started](#getting-started) below.
+
 ## Why
 
 Existing tools catch fixed patterns (card numbers, passwords) and generic
@@ -144,21 +161,20 @@ python -m detector.main           # service at http://127.0.0.1:8000
 python demo_seed.py               # example events, including a cumulative one
 ```
 
-Extension:
+Point the extension at this local service instead of the hosted default,
+then reload it from `chrome://extensions`:
 
 ```bash
-cd extension && npm install && npm run build   # builds extension/dist/
-npm run preview                                # test chat page at http://localhost:8787/preview/
+cd extension && npm install && NDAI_API_URL=http://127.0.0.1:8000 npm run build
+npm run preview   # test chat page at http://localhost:8787/preview/, same override applies
 ```
 
-Load `extension/` at `chrome://extensions` (Developer mode), click the ndAI
-icon, then **Activate ndAI**. Paste text from `corpus/internal/` into ChatGPT
-to trigger a check. Uploaded files open a review page and are sent only after
-every change is approved.
+Uploaded files open a review page and are sent only after every change is
+approved.
 
 Notes:
 
-- The extension calls the local service by default. Set `DETECTOR_MODE = "mock"` in `extension/src/config.ts` to run without it.
+- Set `DETECTOR_MODE = "mock"` in `extension/src/config.ts` to run the extension with no backend at all, real or hosted.
 - PDF/DOCX text extraction is still simulated (`extension/src/review/mock_sanitizer.ts`): PDFs use sample text and return a placeholder `.txt`.
 - Without `sentence-transformers`, ndAI falls back to exact-match mode and cannot catch reworded text. `/health` reports `semantic: false`. Do not demo or evaluate in this mode.
 
