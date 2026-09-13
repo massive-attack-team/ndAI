@@ -242,3 +242,82 @@ From the 13 Sep checks in §7. Nothing here is in force until both people agree.
   thresholds change. The corpus reorganisation moved eval recall from 0.83 to
   0.65 without anyone noticing.
 
+---
+
+## 9. Context stage (proposed, built, not yet agreed)
+
+Detection judges one prompt at a time, so a document that goes out a piece per
+prompt never trips it. `detector/context.py` sits between detection and
+response. It remembers which chunks of which internal documents already reached
+each destination class, per person and per declared team. When the current
+prompt completes enough of one document, it adds a `cumulative` finding to the
+`DetectionResult` before response sees it.
+
+It is built and running in `detector/pipeline.py`, but the changes below touch
+both people's files, so none of it is in force until both agree. Reverting
+`policy.yaml`'s new rule turns it off.
+
+**What changes at the handoff (§2)**
+
+- `Evidence` gains `matched_chunk: int | null`: the chunk position inside
+  `matched_source`. Null for `weak`.
+- `confidence` gains a fourth value, `cumulative`. It is set only by the
+  context stage, never by `detect()`. `matched_source` is the document being
+  pieced together, `sensitivity` is that document's tier, `span` is the
+  strongest sentence in the current prompt that contributed, and `excerpt` is
+  empty.
+- `detection.detect_with_near_misses()` returns `(DetectionResult, [NearMiss])`.
+  A near miss clears `PROVENANCE_HIT` and beats the public corpus by at least
+  `CONTEXT_MARGIN` (0.04) but not by `PUBLIC_MARGIN`. Near misses never reach
+  response. `detect()` is unchanged.
+
+**When a `cumulative` finding is added**
+
+For one document and one destination class, counting only content that
+actually left (`allow` or `warn`, never `sanitize`, `block` or `private_local`)
+within `CONTEXT_WINDOW_DAYS` (14), all of these must hold. The person is checked
+first, then their team:
+
+- the current prompt adds a chunk that hadn't already gone out,
+- at least `CUMULATIVE_MIN_CHUNKS` (2) distinct chunks, from
+- at least `CUMULATIVE_MIN_PROMPTS` (2) distinct prompts, covering
+- at least `CUMULATIVE_COVERAGE` (0.3) of the document's chunks.
+
+These are tuned to the synthetic corpus, where a document is 3-6 chunks. A real
+corpus needs a lower coverage and a higher chunk count.
+
+**Response side**
+
+- `policy.yaml` gains `teams:` (declared membership, never inferred) and one
+  rule, `pieced together across prompts`: `cumulative`, tier 2 or above, to
+  `public_consumer` or `unknown`, is blocked. Other destinations fall through
+  to the existing tier rules (tier 3 to a vetted vendor is sanitized).
+- `PolicyEngine.team_of(user)` reads `teams:`.
+
+**Deliberately left out**
+
+- Inferring roles or teams from prompts. The person being judged could train it.
+- Using history to decide what counts as confidential. The corpus decides; history only adds up evidence.
+- Escalating `weak` findings. They carry no document, so there is nothing to add up.
+- Need-to-know or anomaly alerts. NDAi stops accidental disclosure, not insiders.
+- Storing prompt text. `context_edges` holds doc, chunk, score, who, where and what policy did.
+
+**Checked on 13 Sep** (bge-small-en-v1.5): `python -m eval.check_context` passes
+13/13 fixture cases and 5/5 prompt sequences. The acquisition memo is caught
+across two prompts from one person and across two people on the finance team,
+and the Q3 results across two prompts. 12 harmless workplace prompts to a vetted
+vendor and 4 public questions never add up. Every prompt that got caught was a
+near miss: each piece fell under `PUBLIC_MARGIN` on its own. §7's figures are
+unchanged: `check_contract` 8/15, `response_fixtures` 10/10.
+
+**Known limits**
+
+- The §8 request-sentence false findings are recorded as edges. They don't add
+  up because they all land on the same chunk (`commercial-reorg.md` chunk 2),
+  but a real reorg sentence plus one of them would make two chunks. The §8 fix
+  also fixes this.
+- Near misses include noise, for example "What should the board be asking?" against
+  `series-c-terms.md`. The dashboard draws near-miss-only edges lighter so the
+  graph doesn't claim more than detection does.
+- `demo_seed.py`'s architecture prompt leaves a near-miss edge on
+  `roadmap-2027.md` (§8, architecture docs out of scope).

@@ -30,6 +30,14 @@ roles:
   contractor: {clearance: 1}
   default: {clearance: 2}
 
+# Declared membership, the way an identity provider would supply it. The
+# context graph adds up what a whole team has sent, so a document leaked a
+# piece per person is still one document. Never inferred from prompts.
+teams:
+  finance: [dana@kestrelbio.com, alex@kestrelbio.com]
+  research: [priya@kestrelbio.com]
+  platform: [sam@kestrelbio.com]
+
 # Sensitivity tiers: 0 public, 1 internal, 2 confidential, 3 restricted.
 # First matching rule wins. Order matters.
 rules:
@@ -37,6 +45,14 @@ rules:
     when: {has_critical_secret: true}
     then: block
     message: A live credential was found in this text. Rotate it if it has already been sent anywhere.
+
+  # Confidence "cumulative" comes from the context stage: no single prompt was
+  # enough, but together with what this person or their team already sent to
+  # the same kind of destination, enough of one internal document is out.
+  - name: pieced together across prompts
+    when: {confidence: [cumulative], min_sensitivity: 2, destinations: [public_consumer, unknown]}
+    then: block
+    message: Earlier prompts already sent parts of this internal document to consumer AI, and this one adds more.
 
   - name: weak signal, unconfirmed
     when: {confidence: [weak], min_sensitivity: 2}

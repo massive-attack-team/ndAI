@@ -16,12 +16,17 @@ Two sources of findings, per sentence:
 
 A sentence with a provenance hit skips the category check - provenance is
 strictly stronger evidence for the same sentence, no need to double-report it.
+
+`detect_with_near_misses()` also returns sentences that matched an internal doc
+but fell short of PUBLIC_MARGIN. They are never findings and response never
+sees them; detector/context.py uses them to spot a document going out in
+pieces (CONTRACT.md #9).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from . import categories, provenance
+from . import categories, config, provenance
 
 
 @dataclass
@@ -31,6 +36,7 @@ class Evidence:
     public_baseline_score: float | None
     margin: float | None
     excerpt: str
+    matched_chunk: int | None = None  # chunk position within matched_source, None for weak
 
 
 @dataclass
@@ -40,6 +46,18 @@ class Finding:
     confidence: str              # verbatim | paraphrase | weak, see CONTRACT.md #4
     span: tuple[int, int]
     evidence: Evidence
+
+
+@dataclass
+class NearMiss:
+    """Matched an internal doc, but not by enough over the public corpus to be a finding."""
+    doc: str
+    chunk: int
+    type: str
+    sensitivity: int
+    span: tuple[int, int]
+    score: float
+    margin: float
 
 
 @dataclass
@@ -68,6 +86,7 @@ def _from_provenance_hits(hits: list[provenance.ProvenanceHit]) -> list[Finding]
                 public_baseline_score=round(hit.public_score, 3),
                 margin=round(hit.margin, 3),
                 excerpt=hit.excerpt,
+                matched_chunk=hit.chunk,
             ),
         ))
     return findings
@@ -100,11 +119,27 @@ def _weak_findings(text: str, skip_spans: list[tuple[int, int]]) -> list[Finding
 
 
 def detect(text: str) -> DetectionResult:
-    prov_hits = provenance.get_detector().check_all(text)
+    return detect_with_near_misses(text)[0]
+
+
+def detect_with_near_misses(text: str) -> tuple[DetectionResult, list[NearMiss]]:
+    all_hits = provenance.get_detector().check_all(text, margin=config.CONTEXT_MARGIN)
+    prov_hits = [h for h in all_hits if h.margin >= config.PUBLIC_MARGIN]
     findings = _from_provenance_hits(prov_hits)
     covered_spans = [f.span for f in findings]
     findings.extend(_weak_findings(text, covered_spans))
 
     overall = max((f.sensitivity for f in findings), default=0)
     types_present = sorted({f.type for f in findings})
-    return DetectionResult(findings=findings, overall_sensitivity=overall, types_present=types_present)
+    result = DetectionResult(findings=findings, overall_sensitivity=overall, types_present=types_present)
+
+    near = [
+        NearMiss(
+            doc=h.doc, chunk=h.chunk, type=h.type,
+            sensitivity=h.sensitivity if h.sensitivity is not None else categories.SENSITIVITY.get(h.type, 2),
+            span=h.span, score=round(h.score, 3), margin=round(h.margin, 3),
+        )
+        for h in all_hits
+        if h.margin < config.PUBLIC_MARGIN and h.type in categories.TARGET_TYPES
+    ]
+    return result, near

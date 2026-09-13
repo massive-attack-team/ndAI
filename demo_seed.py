@@ -4,7 +4,7 @@ Run once before the demo:  python demo_seed.py
 """
 from __future__ import annotations
 
-from detector import audit, pipeline
+from detector import audit, context, pipeline
 
 SCENARIOS = [
     ("What is a Z-factor and why is 0.5 the usual cutoff for a screening assay?",
@@ -23,6 +23,17 @@ SCENARIOS = [
     ("We are thinking about buying a microfluidics company for just under four hundred million, "
      "mostly cash with some stock. What should the board be asking?",
      "gemini.google.com", "dana@kestrelbio.com", "default"),
+    # Pieces of the same memo in later prompts: the context graph adds them up,
+    # first for the same person, then for someone else on the finance team.
+    ("The company we want to buy is in a legal fight with an ex-contractor over cartridge tooling "
+     "and our lawyers call the exposure moderate. How worried should we be?",
+     "gemini.google.com", "dana@kestrelbio.com", "default"),
+    ("Some of the purchase price will sit in escrow until the patent dispute is settled. What is a "
+     "normal escrow percentage?",
+     "chatgpt.com", "alex@kestrelbio.com", "default"),
+    ("In the second cohort, KB-2291 reduced tumour volume by 47 percent relative to vehicle control "
+     "at day 21.",
+     "chatgpt.com", "priya@kestrelbio.com", "researcher"),
     ("Is mutual TLS with short lived certificates from an internal CA a reasonable service to "
      "service auth pattern for a small platform team?",
      "chatgpt.com", "sam@kestrelbio.com", "engineer"),
@@ -34,6 +45,7 @@ SCENARIOS = [
 
 def main() -> None:
     audit.init()
+    context.init()
     state = pipeline.warm_up()
     print(f"backend={state['embed_backend']} semantic={state['semantic']} "
           f"rewrite={state['rewrite_model_up']}\n")
