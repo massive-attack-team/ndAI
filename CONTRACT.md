@@ -321,3 +321,52 @@ unchanged: `check_contract` 8/15, `response_fixtures` 10/10.
   graph doesn't claim more than detection does.
 - `demo_seed.py`'s architecture prompt leaves a near-miss edge on
   `roadmap-2027.md` (§8, architecture docs out of scope).
+
+**Peter's review (Response side), 14 Sep — one disagreement, rest agreed**
+
+Went through the five questions above with Peter directly. Recorded here per
+the "note, don't edit" rule — §9 stays proposed until you two agree.
+
+1. **Cumulative tier 2+ to `public_consumer`/`unknown`: disagreement.** Peter
+   wants a chance at `sanitize` before `block`, not a hardcoded block. His
+   reasoning: `rewrite.py` already refuses upfront when the sensitive content
+   is the thing being reasoned about rather than background, and
+   `pipeline.py` already downgrades `sanitize` → `block` whenever the rewrite
+   is refused or Ollama is unreachable - that fallback doesn't care *why* the
+   decision was `sanitize`, so it already gives "try to sanitize, block if
+   that doesn't hold up" for free. Concrete proposed change: the "pieced
+   together across prompts" rule's `then: block` becomes `then: sanitize`.
+   Tier 3 is unaffected either way (it blocks on its own rule regardless of
+   confidence). Separately flagged as a real gap, not something to build
+   today: neither side currently checks whether the *rewritten* text is still
+   a useful prompt - the existing refusal logic is upfront (original
+   phrasing), not a check on the rewrite's output. Worth a future pass.
+2. **Confidence-less rules matching `cumulative` by default: agreed.**
+   Opt-out (write a rule only where cumulative needs to differ) over opt-in
+   (every rule enumerates confidence) - opt-in would need a full rule set
+   duplicated for cumulative or gaps silently fall through to `allow`.
+3. **Credential handling: agreed**, matches what Peter wanted from §8.
+4. **`demo_seed.py` architecture prompts: already resolved on `main`**,
+   independent of this branch - removed in `5aee5a3` when detection's scope
+   was confirmed as the 3 contract types only. Rebasing this branch onto
+   current `main` will need to reconcile with that (see below), not re-add
+   them.
+5. **Teams as demo personas: agreed**, no change needed -
+   `demo_seed.py` already uses dana/priya/sam, matching `teams:`. Separately:
+   real-user testing vs. team self-testing is an open question Peter raised,
+   deliberately not decided here - flagged for later, not blocking this
+   branch.
+
+**Also found in review, not a §9 design question but blocks a clean merge:**
+this branch forked from `b690976`, which is 3 commits behind current `main`
+(`db16ced` pipeline integration, `487bfd8` a corpus bug fix + eligibility
+revert in `provenance.py` + eval set expansion, `5aee5a3` the demo rebuild
+in point 4 above). A trial merge conflicts in `demo_seed.py`,
+`detector/provenance.py`, and `detector/pipeline.py` (8 separate hunks -
+both branches independently rewrote `inspect()` from the same starting
+point). None of it is unfixable, but whoever merges needs to rebase onto
+current `main` first and reconcile by hand, not fast-forward. Worth
+resolving together rather than either of us guessing at the other's intent
+on the parts that don't touch §9 directly (the finding-dict shape in
+particular should follow this branch's version - main's version silently
+stopped matching what `extension/content.js` expects).
