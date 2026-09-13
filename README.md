@@ -43,8 +43,18 @@ python demo_seed.py              # populate the audit log
 cd dashboard && npm install && npm run dev   # http://localhost:5173
 ```
 
-Then load `extension/` at `chrome://extensions` with Developer mode on, and
-paste something from `corpus/internal/` into ChatGPT.
+Then build the extension and load it:
+
+```bash
+cd extension && npm install && npm run build   # TypeScript -> extension/dist/
+npm run preview                                # fake chat page: http://localhost:8787/preview/
+```
+
+Load `extension/` at `chrome://extensions` with Developer mode on, click the
+NDAi toolbar icon, press **Activate NDAi**, and type or paste something from
+`corpus/internal/` into ChatGPT. The extension uses an in-browser mock detector
+by default (`extension/src/config.ts`); set `DETECTOR_MODE = "live"` to call the
+local service instead.
 
 ### If you skip `sentence-transformers`
 
