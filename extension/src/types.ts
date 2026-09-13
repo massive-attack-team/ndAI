@@ -61,6 +61,33 @@ export interface ContextFinding extends DetectionBase {
 
 export type Finding = SecretFinding | ProvenanceFinding | CategoryFinding | ContextFinding;
 
+/** Mirrors sanitiser/contract.py's SanitisationResult.to_json() exactly -
+ * detector/pipeline.py puts it straight on Inspection.sanitiser with no
+ * reshaping, so this same shape round-trips to POST /sanitise/reapply. */
+export interface SanitiserEdit {
+  span: { start: number; end: number; text: string };
+  replacement: string;
+  strategy: "redact" | "generalise" | "remove";
+  reason: string;
+  tier: 0 | 1 | 2 | 3;
+  confidence: Confidence;
+  matched_source: string | null;
+  accepted: boolean;
+}
+
+export interface SanitiserResult {
+  action: "allow" | "sanitise" | "block";
+  sanitised_text: string;
+  edits: SanitiserEdit[];
+  passes: number;
+  residual_findings: number;
+  leak_reduction: number;
+  intent_retention: number;
+  latency_ms: number;
+  reason: string;
+  audit_id: string;
+}
+
 export interface Inspection {
   action: Action;
   rule: string;
@@ -76,7 +103,7 @@ export interface Inspection {
   /** Per-exposure context summary (pipeline.py's Inspection.context) - one entry per doc/destination this prompt touches, not just escalated ones. */
   context?: Array<Record<string, unknown>>;
   /** Present when action === "sanitize" and the sanitiser package (not the old rewrite.py) handled it. */
-  sanitiser?: Record<string, unknown>;
+  sanitiser?: SanitiserResult;
   event_id?: number | null;
   degraded?: boolean; // set by background.js when the service is unreachable
 }

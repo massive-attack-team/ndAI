@@ -1,19 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// PLACEHOLDER for the backend document sanitizer. Front end only.
+// Document review: detection, policy, and passage redaction all go through
+// the real backend now (POST /inspect - detector/pipeline.py). It already
+// runs the sanitiser (sanitiser/service.py) and returns real per-span edits
+// with real replacement text, not a guess - that's what `after` is built
+// from below for non-secret changes.
 //
-// Backend-owned, not built here:
-//   • text extraction from PDF/DOCX (and OCR for scans)
-//   • detection + policy on that text (detector/ pipeline)
-//   • producing the sanitized file from the approved changes (real redaction)
-//
-// Proposed endpoints (TODO(backend), not implemented anywhere yet):
-//   POST /documents/sanitize        file + destination       -> ReviewDocument (without bytes)
-//   POST /documents/{id}/apply      { approved: changeId[] } -> sanitized file
-//
-// Until those exist:
-//   • text files go through the in-browser mock detector
-//   • PDFs use canned extracted text (the file's contents are ignored)
-//   • a "sanitized" PDF comes back as a clearly labelled placeholder .txt
+// Still front-end only, still mocked:
+//   • text extraction from PDF/DOCX (and OCR for scans) - no backend endpoint
+//     exists for this, so PDFs use canned extracted text regardless of the
+//     file's actual contents, and a "sanitized" PDF comes back as a clearly
+//     labelled placeholder .txt rather than a real redacted PDF.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { inspect } from "../detector_client";
@@ -55,7 +51,7 @@ async function buildDocument(file: RawFile, host: string, id: string): Promise<R
   const pdf = isPdf(file);
   let text: string;
   if (pdf) {
-    await sleep(MOCK_EXTRACTION_MS); // TODO(backend): POST /documents/sanitize
+    await sleep(MOCK_EXTRACTION_MS); // no backend endpoint for real PDF/DOCX extraction yet
     text = MOCK_PDF_PAGES.join(PAGE_BREAK);
   } else {
     text = new TextDecoder().decode(file.bytes);
@@ -76,6 +72,14 @@ async function buildDocument(file: RawFile, host: string, id: string): Promise<R
     shown = shown.slice(0, a) + mask + shown.slice(b);
   }
 
+  // The real sanitiser (sanitiser/service.py, via /inspect) already computed
+  // per-span edits with real replacement text when action === "sanitize" -
+  // same span offsets as the findings they came from (both built from the
+  // same DetectionResult server-side), so a start:end key lines them up.
+  const editBySpan = new Map(
+    (result.sanitiser?.edits ?? []).map((e) => [`${e.span.start}:${e.span.end}`, e]),
+  );
+
   const changes: Change[] = [];
   const ordered = [...result.findings].sort((a, b) => a.span[0] - b.span[0] || b.span[1] - a.span[1]);
   for (const f of ordered) {
@@ -86,6 +90,7 @@ async function buildDocument(file: RawFile, host: string, id: string): Promise<R
 
     const [start, end] = f.span;
     const copy = describeFinding(f);
+    const edit = f.kind === "secret" ? undefined : editBySpan.get(`${start}:${end}`);
     const index = changes.length + 1;
     changes.push({
       id: `${id}-c${index}`,
@@ -93,11 +98,15 @@ async function buildDocument(file: RawFile, host: string, id: string): Promise<R
       kind: f.kind === "secret" ? "secret" : "passage",
       start,
       end,
-      before: f.kind === "secret" ? text.slice(start, end) : shown.slice(start, end),
+      before: f.kind === "secret" ? text.slice(start, end) : edit?.span.text ?? shown.slice(start, end),
       masked: f.kind === "secret" ? f.preview : null,
       after: f.kind === "secret"
         ? placeholderFor(f.label)
-        : `[${SENSITIVITY[f.tier]} ${f.type.replace("_", " ")} passage removed]`,
+        // Real backend edit when the top-level decision was "sanitize" and
+        // this span survived verification. Falls back to a placeholder for
+        // spans policy caps below sanitize (e.g. capped to "warn" - no
+        // rewrite was ever attempted) or, rarely, one verify.py dropped.
+        : edit?.replacement ?? `[${SENSITIVITY[f.tier]} ${f.type.replace("_", " ")} passage removed]`,
       tier,
       title: copy.title,
       reason: copy.detail,
@@ -138,7 +147,13 @@ export async function sanitizeFiles(files: RawFile[], host: string): Promise<{ d
 
 const safeName = (name: string) => name.replace(/(\.[^.]+)?$/, ".sanitized$1");
 
-/** Approved changes -> the file that gets uploaded. TODO(backend): POST /documents/{id}/apply */
+/** Approved changes -> the file that gets uploaded.
+ *
+ * For text files this is now genuinely real, not a stand-in: `c.after` on a
+ * "passage" change is the real backend edit (see buildDocument), so this is
+ * exactly the same replay /sanitise/reapply would do server-side, just done
+ * locally since we already have every edit from the initial /inspect call -
+ * no round trip needed to accept/reject a subset. */
 export async function buildOutput(doc: ReviewDocument): Promise<File> {
   const approved = doc.changes.filter((c) => c.decision === "approved");
   const sanitized = applyEdits(doc.text, approved.map((c) => ({ start: c.start, end: c.end, replacement: c.after })));
@@ -149,7 +164,9 @@ export async function buildOutput(doc: ReviewDocument): Promise<File> {
   }
 
   // PLACEHOLDER. Never pass the original PDF through here: it still contains
-  // everything that was flagged. The backend returns the real sanitized PDF.
+  // everything that was flagged. Text extraction from the real PDF is what's
+  // still mocked (see the header comment) - there's no real content here to
+  // sanitize until that exists.
   const kept = doc.changes.length - approved.length;
   const body = [
     `NDAi MOCK OUTPUT — placeholder for the backend's sanitized copy of ${doc.name}.`,
