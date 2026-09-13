@@ -4,12 +4,13 @@ Two people, two features, built in parallel today. This file is the interface
 between them — read it before writing code so neither person blocks on the
 other's progress.
 
-- **Person 1 — Detection.** Given raw text, decide what kind of sensitive
-  thing it is and how sensitive. Owns `detector/provenance.py`,
-  `detector/categories.py`, `corpus/`, and the corpus-building work.
-- **Person 2 — Response.** Given a detection judgment plus who's sending and
-  where it's going, decide what happens to the prompt. Owns `detector/policy.py`,
-  `policy.yaml`, `detector/rewrite.py`.
+- **Person 1 — Detection (Hoang Phuc).** Given raw text, decide what kind of
+  sensitive thing it is and how sensitive. Owns `detector/detection.py`,
+  `detector/provenance.py`, `detector/categories.py`, `corpus/`, and the
+  corpus-building work.
+- **Person 2 — Response (Peter).** Given a detection judgment plus who's sending
+  and where it's going, decide what happens to the prompt. Owns
+  `detector/policy.py`, `policy.yaml`, `detector/rewrite.py`.
 
 Detection doesn't need to know how response uses its output. Response doesn't
 need to know how detection arrived at its judgment. The only thing that has to
@@ -172,8 +173,72 @@ action."
 
 Detection (Person 1's side) has a first pass built already — typed corpus,
 frontmatter-driven type/tier, `detector/detection.py`'s `detect()` producing
-real `DetectionResult` values off the hashing fallback (not yet verified
-against the real `sentence-transformers` backend). Whoever picks up Person 1's
+real `DetectionResult` values. Whoever picks up Person 1's
 role can pick up from there rather than starting cold; nothing here blocks
 Person 2 from starting the fixture-based response work described in §6 right
 now.
+
+Checked on 13 Sep against the real `sentence-transformers` backend
+(bge-small-en-v1.5):
+
+- **Response:** `python -m eval.response_fixtures` passes 10/10.
+- **Detection:** `python -m eval.check_contract` runs the 15 acceptance
+  scenarios in `eval/contract_scenarios.json` (11 across the three types and
+  tiers, 4 public questions that must come back clean); `detect()` passes 8.
+  The tumour and acquisition paraphrases and a word-for-word copy of the
+  KB-2291 result fall under `PUBLIC_MARGIN` (margins 0.052, 0.094 and 0.075),
+  the market-entry prompt gets no `weak` finding (0.603 against 0.71), and
+  request sentences trip false findings (§8).
+- **End to end** (`detect()`, then `evaluate_detection()`): three restricted
+  leaks in the scenarios are allowed to chatgpt.com and Gemini, and harmless
+  prompts that trip false findings are sanitized.
+
+---
+
+## 8. Proposed changes (not yet agreed)
+
+From the 13 Sep checks in §7. Nothing here is in force until both people agree.
+
+- **Request sentences must not match.** Generic asks match the process docs by
+  wide margins. "Draft an internal note for the leadership team about the new
+  office opening hours." comes back as `strategic_plan` tier 2 against
+  `commercial-reorg.md` with margin 0.141, wider than most real leaks. 3 of 6
+  harmless workplace prompts tested were flagged this way, and
+  `evaluate_detection()` turns each into `sanitize` on chatgpt.com. Detection
+  owns the fix.
+- **Credentials need their own path into response.** §1 keeps them out of
+  `DetectionResult`, and `evaluate_detection()` passes
+  `has_critical_secret=False`, so a pasted database password produces no
+  findings and is allowed. Proposal: the pipeline runs `secrets_scan.scan()`
+  and applies the credential rule before `evaluate_detection()`.
+- **`verbatim` means 8 or more consecutive words shared with
+  `matched_source`**, ignoring case and punctuation, instead of a cosine
+  cut-off. A single sentence is compared with a 60-word chunk, so copies can
+  score under 0.78: the FY27 roadmap's Q4 line, copied word for word, scores
+  0.772 and is labelled `paraphrase`, while a partly reworded reorg sentence
+  scores 0.785 and is labelled `verbatim`. §4 lets `verbatim` justify a block,
+  so the label has to be right.
+- **`overall_sensitivity` should leave out `weak` findings, or go.**
+  `evaluate_detection()` already decides per finding, so only other readers
+  (dashboard, audit, risk score) use the field, and today a topic-only research
+  or financial finding sets it to 3.
+- **Define `excerpt`.** §2 says "short redacted preview, not raw text", but
+  `detect()` returns the matched internal passage unredacted, and the prompt
+  sentence itself for `weak` findings. Proposal: the matched internal passage
+  for `verbatim` and `paraphrase`, empty for `weak`, and never sent to the
+  browser or stored in the audit log.
+- **Add `semantic: bool` to `DetectionResult`.** On the hashing fallback,
+  paraphrase detection is off, and an empty result looks the same as a clean
+  one.
+- **Architecture and code docs are out of scope.** `detect()` drops matches to
+  `architecture-kestrel.md` and `ingest_service.py` because they have no type,
+  so the architecture prompts in `demo_seed.py` return no findings. Either give
+  those docs a type or move the demo to the three types.
+- **A rewrite goes back through `detect()` before it's offered.** Otherwise the
+  "safe version" is never checked.
+- **Detection is done when the eval says so.** Add to §5: `check_contract`
+  passes, and `eval/run_eval.py` reports recall, false positives and source
+  attribution per type on a held-out split, re-run whenever the corpus or
+  thresholds change. The corpus reorganisation moved eval recall from 0.83 to
+  0.65 without anyone noticing.
+
