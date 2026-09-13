@@ -35,7 +35,11 @@ CREATE TABLE IF NOT EXISTS events (
     chars_withheld INTEGER,
     text_sha256 TEXT,
     preview TEXT,
-    findings TEXT
+    findings TEXT,
+    passes INTEGER,
+    residual_findings INTEGER,
+    leak_reduction REAL,
+    intent_retention REAL
 );
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
 """
@@ -65,8 +69,9 @@ def record(event: dict[str, Any]) -> int:
         cur = conn.execute(
             """INSERT INTO events (ts, user, role, destination, destination_class, action,
                rule, sensitivity, risk, latency_ms, chars_total, chars_withheld,
-               text_sha256, preview, findings)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               text_sha256, preview, findings, passes, residual_findings,
+               leak_reduction, intent_retention)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 event.get("ts", time.time()), event.get("user"), event.get("role"),
                 event.get("destination"), event.get("destination_class"), event.get("action"),
@@ -74,6 +79,8 @@ def record(event: dict[str, Any]) -> int:
                 event.get("latency_ms"), event.get("chars_total"), event.get("chars_withheld"),
                 event.get("text_sha256"), event.get("preview"),
                 json.dumps(event.get("findings", [])),
+                event.get("passes"), event.get("residual_findings"),
+                event.get("leak_reduction"), event.get("intent_retention"),
             ),
         )
         return cur.lastrowid

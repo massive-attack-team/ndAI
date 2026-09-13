@@ -99,6 +99,7 @@ class ProvenanceHit:
     sensitivity: int | None = None
     confidence: str = "paraphrase"   # "verbatim" | "paraphrase", see CONTRACT.md #4
     span: tuple[int, int] = (0, 0)
+    chunk: int = 0                   # position of the matched chunk within `doc`
 
 
 class Index:
@@ -148,7 +149,16 @@ class ProvenanceDetector:
         self.internal.build(config.INTERNAL_CORPUS)
         self.public.build(config.PUBLIC_CORPUS)
 
-    def check_all(self, text: str) -> list[ProvenanceHit]:
+    def chunk_totals(self) -> dict[str, tuple[int, str | None, int | None]]:
+        """Per internal doc: (number of chunks, type, tier). The denominator for
+        how much of a document has left the machine (see detector/context.py)."""
+        totals: dict[str, tuple[int, str | None, int | None]] = {}
+        for c in self.internal.chunks:
+            n, _, _ = totals.get(c.doc, (0, None, None))
+            totals[c.doc] = (n + 1, c.chunk_type, c.tier)
+        return totals
+
+    def check_all(self, text: str, margin: float = config.PUBLIC_MARGIN) -> list[ProvenanceHit]:
         """Score every sentence independently and return every eligible hit.
 
         Sentence granularity matters: a 500-word prompt with two leaked lines
@@ -156,6 +166,9 @@ class ProvenanceDetector:
         `check()`, this keeps every sentence that clears threshold, not just
         the worst one - a prompt can carry more than one finding (see
         CONTRACT.md #2).
+
+        `margin` defaults to PUBLIC_MARGIN. detection.py passes the lower
+        CONTEXT_MARGIN to also collect near misses for the context graph.
         """
         spans = split_sentences_with_spans(text)
         sentences = [s for s, _, _ in spans]
@@ -172,8 +185,10 @@ class ProvenanceDetector:
         # against internal docs, and sometimes clear it even higher against
         # public ones (negative margin) - an absolute bypass let those through
         # as false positives. The margin is what's actually discriminating
-        # here, verbatim or not; keep it required for every hit.
-        eligible = (int_scores >= config.PROVENANCE_HIT) & (margins >= config.PUBLIC_MARGIN)
+        # here, verbatim or not; keep it required for every hit - `margin`
+        # just lets detection.py ask for a lower bar (CONTEXT_MARGIN) to
+        # collect near misses, not skip the check.
+        eligible = (int_scores >= config.PROVENANCE_HIT) & (margins >= margin)
 
         hits = []
         for i, ok in enumerate(eligible):
@@ -193,6 +208,7 @@ class ProvenanceDetector:
                 sensitivity=chunk.tier,
                 confidence="verbatim" if verbatim else "paraphrase",
                 span=(start, end),
+                chunk=chunk.idx,
             ))
         return hits
 

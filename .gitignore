@@ -5,3 +5,4 @@ node_modules/
 dist/
 ndai.db
 eval/results.csv
+eval/sanitiser_results.json

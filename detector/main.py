@@ -11,7 +11,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import audit, config, pipeline, policy
+from . import audit, config, context, pipeline, policy, rewrite
+from sanitiser.service import reapply as sanitiser_reapply
+from sanitiser.service import sanitise as sanitiser_sanitise
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("ndai")
@@ -38,9 +40,23 @@ class InspectRequest(BaseModel):
     log: bool = True
 
 
+class SanitiseRequest(BaseModel):
+    text: str
+
+
+class ReapplyRequest(BaseModel):
+    original_text: str
+    edits: list[dict]
+
+
+class LocalAnswerRequest(BaseModel):
+    text: str
+
+
 @app.on_event("startup")
 def startup() -> None:
     audit.init()
+    context.init()
     state = pipeline.warm_up()
     log.info("ready: %s", state)
     if not state["semantic"]:
@@ -71,10 +87,37 @@ def stats():
     return audit.stats()
 
 
+@app.get("/graph")
+def graph():
+    return context.graph(teams=policy.get_engine().teams)
+
+
 @app.post("/policy/reload")
 def reload_policy():
     policy.get_engine().reload()
     return {"reloaded": True}
+
+
+@app.post("/sanitise")
+def sanitise_endpoint(req: SanitiseRequest):
+    """Standalone sanitiser call for the diff UI - runs detection itself.
+    /inspect is the source of truth for the allow/warn/sanitize/block
+    decision; this exists so the UI can re-run just the rewrite+verify step
+    (e.g. after the user edits the prompt) without a full /inspect round trip."""
+    return sanitiser_sanitise(req.text).to_json()
+
+
+@app.post("/sanitise/reapply")
+def reapply_endpoint(req: ReapplyRequest):
+    """UI toggled accept/reject on some spans - recompute without re-running
+    the model."""
+    return {"sanitised_text": sanitiser_reapply(req.original_text, req.edits)}
+
+
+@app.post("/local-answer")
+def local_answer(req: LocalAnswerRequest):
+    """Block path: the original prompt never leaves the machine."""
+    return {"answer": rewrite.answer_locally(req.text)}
 
 
 def run() -> None:

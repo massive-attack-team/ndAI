@@ -41,6 +41,26 @@ PUBLIC_MARGIN = 0.105        # internal score must beat best public score by thi
 
 CATEGORY_HIT = 0.71
 
+# --- Context graph ----------------------------------------------------------
+# detector/context.py remembers which parts of which internal docs each person
+# and team has already sent out, so a document leaked a piece at a time gets
+# caught on the piece that completes the picture. CONTRACT.md #9.
+#
+# A near miss clears PROVENANCE_HIT and beats the public corpus by at least
+# CONTEXT_MARGIN, but not by PUBLIC_MARGIN. On its own it is not a finding;
+# it only counts when it lands on a document the same person or team has
+# already been sending out.
+CONTEXT_MARGIN = 0.04
+CONTEXT_WINDOW_DAYS = 14         # older sends stop counting towards exposure
+# A "cumulative" finding needs all three: distinct chunks of one doc sent to
+# the same destination class, distinct prompts they came from, and the share
+# of the doc's chunks that adds up to. Tuned to the synthetic corpus, where a
+# doc is 3-6 chunks. A real corpus with long documents needs a lower
+# coverage and a higher chunk count.
+CUMULATIVE_MIN_CHUNKS = 2
+CUMULATIVE_MIN_PROMPTS = 2
+CUMULATIVE_COVERAGE = 0.3
+
 # --- Rewrite ----------------------------------------------------------------
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b-instruct")
