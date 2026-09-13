@@ -22,14 +22,13 @@ log = logging.getLogger("ndai")
 app = FastAPI(title="ndAI", version="0.1.0")
 
 # NDAI_EXTRA_ORIGINS: comma-separated origins to allow beyond the defaults -
-# for the deployed dashboard and standalone preview page. Set on the hosted
-# instance only; a local install needs no change here.
+# for the deployed standalone preview page. Set on the hosted instance only;
+# a local install needs no change here.
 _extra_origins = [o.strip() for o in os.getenv("NDAI_EXTRA_ORIGINS", "").split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173", "http://127.0.0.1:5173",  # dashboard dev server
         "http://localhost:8787", "http://127.0.0.1:8787",  # extension/preview dev server
         "https://chatgpt.com", "https://claude.ai", "https://gemini.google.com",
         *_extra_origins,
@@ -93,11 +92,6 @@ def events(limit: int = 100):
 @app.get("/stats")
 def stats():
     return audit.stats()
-
-
-@app.get("/graph")
-def graph():
-    return context.graph(teams=policy.get_engine().teams)
 
 
 @app.post("/policy/reload")

@@ -1,4 +1,5 @@
-"""Populate the audit log so the dashboard has something to show.
+"""Populate the audit log with a few real scenarios, including a cumulative
+(pieced-together-across-prompts) one, for a warm demo state.
 
 Run once before the demo:  python demo_seed.py
 """

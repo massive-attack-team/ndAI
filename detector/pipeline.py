@@ -187,7 +187,7 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
 
 
 def _finding_dict(f: detection.Finding, signal: context.ContextSignal) -> dict[str, Any]:
-    """The shape the extension and dashboard render. `kind` picks the renderer."""
+    """The shape the extension renders. `kind` picks the renderer."""
     e = f.evidence
     base = {"type": f.type, "tier": f.sensitivity, "confidence": f.confidence, "span": list(f.span)}
     if f.confidence == "weak":

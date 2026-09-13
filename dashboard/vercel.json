@@ -1,5 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "https://ndai-449222277673.europe-west1.run.app/:path*" }
-  ]
-}

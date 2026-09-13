@@ -97,8 +97,7 @@ pip install -r requirements.txt
 ollama pull qwen2.5:3b-instruct   # local model for rewrites and local answers
 
 python -m detector.main           # service at http://127.0.0.1:8000
-python demo_seed.py               # example events for the dashboard
-cd dashboard && npm install && npm run dev   # http://localhost:5173
+python demo_seed.py               # example events, including a cumulative one
 ```
 
 Extension:
@@ -117,7 +116,7 @@ Notes:
 
 - The extension calls the local service by default. Set `DETECTOR_MODE = "mock"` in `extension/src/config.ts` to run without it.
 - PDF/DOCX text extraction is still simulated (`extension/src/review/mock_sanitizer.ts`): PDFs use sample text and return a placeholder `.txt`.
-- Without `sentence-transformers`, ndAI falls back to exact-match mode and cannot catch reworded text. `/health` reports `semantic: false` and the dashboard shows a warning. Do not demo or evaluate in this mode.
+- Without `sentence-transformers`, ndAI falls back to exact-match mode and cannot catch reworded text. `/health` reports `semantic: false`. Do not demo or evaluate in this mode.
 
 ## Evaluation
 
@@ -156,7 +155,6 @@ detector/         local inspection service (FastAPI, 127.0.0.1 only)
                    (context_edges sits beside it: doc, chunk, score, never text)
 sanitiser/         stage 4, per-span rewrite with a re-detection verification loop
 extension/         Chrome MV3, TypeScript, file upload and a review UI
-dashboard/         Vite + React, live stream, context graph, and the three-way comparison
 eval/              labelled dataset and metrics harnesses
 corpus/internal    fake company confidential material
 corpus/public      hard negatives, same field, public sources
@@ -171,6 +169,6 @@ CONTRACT.md        the DetectionResult schema, type taxonomy, sensitivity rubric
 3. Approval workflow for blocks: request an exception, route to a reviewer.
 4. Coverage beyond the browser: a proxy for IDE assistants and CLI tools.
 5. Return an edited copy of uploaded files, not just a decision per row.
-6. Show calibration and per-user history in the dashboard.
+6. Surface calibration and per-user history somewhere a person can see it (`/calibration`, `/users/{user}/profile` exist, nothing renders them yet).
 7. Real PDF/DOCX text extraction in the backend.
 8. Offer the local answer in the extension when a message is blocked.
