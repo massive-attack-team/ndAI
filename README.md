@@ -43,8 +43,23 @@ python demo_seed.py              # populate the audit log
 cd dashboard && npm install && npm run dev   # http://localhost:5173
 ```
 
-Then load `extension/` at `chrome://extensions` with Developer mode on, and
-paste something from `corpus/internal/` into ChatGPT.
+Then build the extension and load it:
+
+```bash
+cd extension && npm install && npm run build   # TypeScript -> extension/dist/
+npm run preview                                # fake chat page: http://localhost:8787/preview/
+```
+
+Load `extension/` at `chrome://extensions` with Developer mode on, click the
+NDAi toolbar icon, press **Activate NDAi**, and type or paste something from
+`corpus/internal/` into ChatGPT. Uploading a PDF or text file holds the upload,
+shows a notice with a link to the extension's review page, and only sends a
+sanitized copy once every proposed change has been approved or kept. In the
+preview, use **+ sample board-memo.pdf**. Document extraction and the sanitized
+output are front-end mocks (`extension/src/review/mock_sanitizer.ts`) until the
+backend provides them. The extension uses an in-browser mock detector
+by default (`extension/src/config.ts`); set `DETECTOR_MODE = "live"` to call the
+local service instead.
 
 ### If you skip `sentence-transformers`
 

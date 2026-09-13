@@ -131,20 +131,12 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
         # we already computed above (`result`, post context-stage escalation
         # merge) so the prompt isn't re-embedded twice.
         san = run_sanitiser(text, result)
-        sanitiser_meta = {
-            "passes": san.passes,
-            "residual_findings": san.residual_findings,
-            "leak_reduction": san.leak_reduction,
-            "intent_retention": san.intent_retention,
-            "edits": [
-                {
-                    "span": [e.span.start, e.span.end], "strategy": e.strategy,
-                    "reason": e.reason, "tier": e.tier, "confidence": e.confidence,
-                    "matched_source": e.matched_source,
-                }
-                for e in san.edits
-            ],
-        }
+        # Full shape (san.to_json()), not a hand-picked subset: the document
+        # review UI needs each edit's replacement text and original span.text
+        # to build a real before/after diff, not just the metadata - and this
+        # shape already matches what /sanitise/reapply expects verbatim, so
+        # the frontend can round-trip an edit list back with no translation.
+        sanitiser_meta = san.to_json()
         if san.action == "block":
             decision = policy.Decision("block", decision.rule, san.reason or decision.message)
         else:
