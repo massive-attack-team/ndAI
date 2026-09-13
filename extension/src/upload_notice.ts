@@ -25,7 +25,7 @@ const listNames = (names: string[]) => (names.length === 1 ? names[0] : plural(n
 const middleEllipsis = (s: string, max = 44) => (s.length <= max ? s : `${s.slice(0, max - 18)}…${s.slice(-17)}`);
 
 export function showNotice(container: HTMLElement, on: { open(): void; cancel(): void }): Notice {
-  const el = h("section", { class: "ndai-notice", role: "region", "aria-label": "NDAi upload review", "aria-live": "polite" });
+  const el = h("section", { class: "ndai-notice", role: "region", "aria-label": "ndAI upload review", "aria-live": "polite" });
   container.append(el);
   let timer = 0;
 

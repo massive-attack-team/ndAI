@@ -27,7 +27,7 @@ function send<T>(msg: object): Promise<T> {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(msg, (res?: Reply<T>) => {
       const err = chrome.runtime.lastError;
-      if (err || !res) reject(new Error(err?.message ?? "NDAi's background worker didn't respond."));
+      if (err || !res) reject(new Error(err?.message ?? "ndAI's background worker didn't respond."));
       else if (!res.ok) reject(new Error(res.error ?? "Request failed."));
       else resolve(res.value as T);
     });

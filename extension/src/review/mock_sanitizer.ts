@@ -169,7 +169,7 @@ export async function buildOutput(doc: ReviewDocument): Promise<File> {
   // sanitize until that exists.
   const kept = doc.changes.length - approved.length;
   const body = [
-    `NDAi MOCK OUTPUT — placeholder for the backend's sanitized copy of ${doc.name}.`,
+    `ndAI MOCK OUTPUT: placeholder for the backend's sanitized copy of ${doc.name}.`,
     `${approved.length} change(s) applied, ${kept} kept. Text below is mock extraction, not the uploaded file.`,
     "",
     sanitized.replace(/\f/g, "———— page break ————"),

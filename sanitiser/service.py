@@ -92,7 +92,7 @@ def sanitise(text: str, detection_result: Any = None) -> SanitisationResult:
         leak_reduction=verify.leak_reduction(before, after),
         intent_retention=retention,
         latency_ms=int((time.perf_counter() - t0) * 1000),
-        reason=_block_reason(findings, residual) if action == "block" else "",
+        reason=_block_reason(findings, passes, residual) if action == "block" else "",
     )
 
 
@@ -117,8 +117,8 @@ def reapply(original: str, edits_json: list[dict]) -> str:
     return apply_edits(original, edits)
 
 
-def _block_reason(findings: list[Finding], residual: int) -> str:
-    if residual:
+def _block_reason(findings: list[Finding], passes: int, residual: int) -> str:
+    if passes and residual:
         return (
             f"Rewriting was attempted but {residual} sentence(s) still matched internal "
             "material after two passes. Blocked rather than sent."

@@ -1,4 +1,4 @@
-"""NDAi local inspection service.
+"""ndAI local inspection service.
 
 Binds to 127.0.0.1 only. The prompt text never leaves this process except as a
 rewritten version the user has seen and approved.
@@ -7,18 +7,18 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import audit, config, context, pipeline, policy, rewrite
+from . import audit, calibration, config, context, pipeline, policy, rewrite
 from sanitiser.service import reapply as sanitiser_reapply
 from sanitiser.service import sanitise as sanitiser_sanitise
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("ndai")
 
-app = FastAPI(title="NDAi", version="0.1.0")
+app = FastAPI(title="ndAI", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -118,6 +118,36 @@ def reapply_endpoint(req: ReapplyRequest):
 def local_answer(req: LocalAnswerRequest):
     """Block path: the original prompt never leaves the machine."""
     return {"answer": rewrite.answer_locally(req.text)}
+
+
+@app.post("/inspect/file")
+async def inspect_file_endpoint(
+    file: UploadFile = File(...),
+    destination: str = Form(...),
+    user: str = Form("unknown"),
+    role: str = Form("default"),
+):
+    """Same judgment as /inspect, applied per row/page of an uploaded
+    document (csv/md/txt/pdf/xlsx/parquet - detector/ingest.py)."""
+    data = await file.read()
+    result = pipeline.inspect_file(file.filename, data, destination=destination, user=user, role=role)
+    return result.__dict__
+
+
+@app.get("/calibration")
+def calibration_endpoint():
+    """Current team-history stats and the effective (calibrated)
+    provenance margin per in-scope document type - lets you see exactly
+    why a threshold moved, matching policy.yaml's "deliberately dumb,
+    auditable" ethos."""
+    return calibration.calibration_report()
+
+
+@app.get("/users/{user}/profile")
+def user_profile_endpoint(user: str):
+    """Advisory only: what this user's own history looks like by document
+    type. Never fed into policy.py's role-based clearance."""
+    return calibration.user_profile(user)
 
 
 def run() -> None:

@@ -1,9 +1,8 @@
-"""Person 2's (Response) validation harness - CONTRACT.md #6.
+"""Response validation harness.
 
 Hand-written DetectionResult fixtures, not real detection output. The point
-is to build and sanity-check the policy decision logic against every
-interesting tier x confidence x destination combination without waiting on
-Person 1's detection work to be finished or even running.
+is to sanity-check the policy decision logic against every interesting tier
+x confidence x destination combination independently of detection.
 
 Run:  python -m eval.response_fixtures            (from the repo root)
 """

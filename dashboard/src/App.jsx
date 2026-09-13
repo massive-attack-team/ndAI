@@ -68,7 +68,7 @@ function Header({ stats, health }) {
   return (
     <header>
       <div className="flex items-baseline justify-between gap-6">
-        <h1 className="text-xl font-semibold">NDAi</h1>
+        <h1 className="text-xl font-semibold">ndAI</h1>
         <ServiceState health={health} />
       </div>
 
@@ -175,7 +175,7 @@ function Detail({ event }) {
           weak={!cat}
         />
         <Compare
-          term="NDAi"
+          term="ndAI"
           detail={
             ctx
               ? `${ctx.chunks_out} of ${ctx.chunk_total} sections of ${ctx.label} sent over ${ctx.prompts} prompts`

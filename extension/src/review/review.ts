@@ -87,7 +87,7 @@ function header(): HTMLElement {
   return h("header", { class: "rv-header" },
     h("div", { class: "rv-brand" },
       h("span", { class: "rv-logo", "aria-hidden": "true" }, "N"),
-      h("span", { class: "rv-brand-name" }, "NDAi"),
+      h("span", { class: "rv-brand-name" }, "ndAI"),
       h("span", { class: "rv-brand-sep", "aria-hidden": "true" }, "/"),
       h("span", {}, "Upload review")),
     session && phase === "review" && h("p", { class: "rv-hold" },
@@ -568,7 +568,7 @@ async function init(): Promise<void> {
     return render();
   }
   phase = "review";
-  document.title = `Review ${session.documents.length > 1 ? `${session.documents.length} documents` : session.documents[0].name} · NDAi`;
+  document.title = `Review ${session.documents.length > 1 ? `${session.documents.length} documents` : session.documents[0].name} · ndAI`;
   render();
   selectFirstPending();
 }

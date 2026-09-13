@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import audit, categories, context, detection, policy, provenance, rewrite, secrets_scan
+from . import audit, categories, context, detection, ingest, policy, provenance, rewrite, secrets_scan
 from .embeddings import get_embedder
 from sanitiser.service import sanitise as run_sanitiser
 
@@ -35,6 +35,15 @@ class Inspection:
     sanitiser: dict[str, Any] = field(default_factory=dict)
     context: list[dict[str, Any]] = field(default_factory=list)
     event_id: int | None = None
+
+
+@dataclass
+class FileInspection:
+    filename: str
+    action: str
+    sensitivity: int
+    latency_ms: float
+    chunks: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _risk(sensitivity: int, destination_class: str) -> float:
@@ -185,6 +194,42 @@ def _finding_dict(f: detection.Finding, signal: context.ContextSignal) -> dict[s
         "public_score": e.public_baseline_score, "margin": e.margin,
         "verbatim": f.confidence == "verbatim", "excerpt": e.excerpt, **base,
     }
+
+
+def inspect_file(filename: str, data: bytes, *, destination: str, user: str = "unknown",
+                  role: str = "default") -> FileInspection:
+    """Same judgment as inspect(), applied per row/page of a document instead
+    of one pasted prompt. Runs the existing, unmodified inspect() once per
+    chunk (see detector/ingest.py) - secrets scan, detection, calibrated
+    thresholds, the context stage and the sanitiser all apply exactly as
+    they do for text input, with zero duplicated logic. Each chunk is
+    logged (log_event=True), so a file scan feeds the same audit and context
+    history detector/calibration.py and detector/context.py read from - a
+    document leaked one row per file, over several uploads, is exactly the
+    piecemeal-leak case the context stage already catches.
+    """
+    started = time.perf_counter()
+    chunks = ingest.extract(filename, data)
+
+    rows: list[dict[str, Any]] = []
+    worst: Inspection | None = None
+    for chunk in chunks:
+        insp = inspect(chunk.text, destination=destination, user=user, role=role, log_event=True)
+        rows.append({
+            "label": chunk.label, "action": insp.action, "rule": insp.rule,
+            "sensitivity": insp.sensitivity, "message": insp.message,
+        })
+        if worst is None or policy.DECISIONS.index(insp.action) > policy.DECISIONS.index(worst.action):
+            worst = insp
+
+    latency = (time.perf_counter() - started) * 1000
+    return FileInspection(
+        filename=filename,
+        action=worst.action if worst else "allow",
+        sensitivity=worst.sensitivity if worst else 0,
+        latency_ms=round(latency, 1),
+        chunks=rows,
+    )
 
 
 def _baselines(text: str, findings: list[dict[str, Any]]) -> dict[str, str]:

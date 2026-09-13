@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "NDAi",
+  "name": "ndAI",
   "version": "0.3.0",
   "description": "Checks what you are about to send to an AI assistant before it leaves your machine.",
   "permissions": ["storage"],
@@ -12,7 +12,7 @@
     "https://gemini.google.com/*"
   ],
   "background": { "service_worker": "dist/background.js" },
-  "action": { "default_popup": "popup.html", "default_title": "NDAi" },
+  "action": { "default_popup": "popup.html", "default_title": "ndAI" },
   "content_scripts": [
     {
       "matches": [

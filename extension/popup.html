@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>NDAi</title>
+<title>ndAI</title>
 <style>
   :root {
     --bg: #fbfbf9; --ink: #1b2021; --muted: #5f6661; --line: #dcdfd9; --accent: #2a4b7c;
@@ -40,27 +40,27 @@
   <div class="brand">
     <div class="logo" aria-hidden="true">N</div>
     <div>
-      <h1>NDAi</h1>
+      <h1>ndAI</h1>
       <p class="tag">Checks prompts and files before they reach an AI tool.</p>
     </div>
   </div>
 
   <section id="off" hidden>
     <p>Flags confidential text and credentials as you type in ChatGPT, Claude and Gemini.</p>
-    <button id="activate" class="primary">Activate NDAi</button>
+    <button id="activate" class="primary">Activate ndAI</button>
   </section>
 
   <section id="on" hidden>
-    <p class="status"><span class="dot"></span>NDAi is active</p>
+    <p class="status"><span class="dot"></span>ndAI is active</p>
     <ul class="legend">
-      <li><i style="background: var(--green)"></i>Green — fine to send</li>
-      <li><i style="background: var(--yellow)"></i>Yellow — sanitize first</li>
-      <li><i style="background: var(--red)"></i>Red — blocked</li>
+      <li><i style="background: var(--green)"></i>Green: fine to send</li>
+      <li><i style="background: var(--yellow)"></i>Yellow: sanitize first</li>
+      <li><i style="background: var(--red)"></i>Red: blocked</li>
     </ul>
-    <button id="pause" class="quiet">Pause NDAi</button>
+    <button id="pause" class="quiet">Pause ndAI</button>
   </section>
 
-  <footer>Mock detector · nothing leaves the browser</footer>
+  <footer>Mock detector, nothing leaves the browser</footer>
   <script src="dist/popup.js"></script>
 </body>
 </html>

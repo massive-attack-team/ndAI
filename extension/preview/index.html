@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>NDAi preview</title>
+<title>ndAI preview</title>
 <!--
   Stand-in for a chat site so the content script can be exercised without
   loading the extension. The composer copies ProseMirror's DOM shape
@@ -48,7 +48,7 @@
 </head>
 <body>
 <header>
-  <strong>NDAi preview</strong>
+  <strong>ndAI preview</strong>
   <label>Destination
     <select id="dest">
       <option value="chatgpt.com" selected>chatgpt.com (consumer)</option>
@@ -154,7 +154,7 @@
     setTimeout(() => addMessage("(assistant reply would appear here)", true), 300);
   }
 
-  // Host-page handlers, registered normally. NDAi's capture-phase listeners run first.
+  // Host-page handlers, registered normally. ndAI's capture-phase listeners run first.
   document.getElementById("send").addEventListener("click", send);
   editor.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }

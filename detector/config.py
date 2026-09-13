@@ -41,6 +41,17 @@ PUBLIC_MARGIN = 0.105        # internal score must beat best public score by thi
 
 CATEGORY_HIT = 0.71
 
+# --- Calibration --------------------------------------------------------
+# Per-type nudge on PUBLIC_MARGIN, calibrated from this install's own audit
+# history (detector/calibration.py) - "team" = every event this local
+# install has ever logged, across every user. Below CALIBRATION_MIN_SAMPLES
+# findings for a type, calibration is a no-op and PUBLIC_MARGIN is used
+# unchanged - a fresh install behaves exactly like today.
+CALIBRATION_MIN_SAMPLES = 15
+CALIBRATION_MAX_ADJUST = 0.15          # margin moves at most +/-15% from PUBLIC_MARGIN
+CALIBRATION_TARGET_CONFIDENCE = 0.7    # "healthy" share of verbatim/paraphrase vs weak
+CALIBRATION_TARGET_SENSITIVE = 0.5     # "healthy" share of findings at tier >= 2
+
 # --- Context graph ----------------------------------------------------------
 # detector/context.py remembers which parts of which internal docs each person
 # and team has already sent out, so a document leaked a piece at a time gets

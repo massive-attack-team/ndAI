@@ -1,4 +1,4 @@
-// NDAi inline inspector.
+// ndAI inline inspector.
 //
 // Reads the composer, never writes to it. Everything visual lives in a fixed,
 // pointer-transparent overlay inside our own shadow root, positioned from
@@ -314,7 +314,7 @@ class Inspector {
 
     this.marksLayer = h("div", { class: "ndai-layer" });
     this.badge = h("button", { class: "ndai-badge", type: "button", hidden: "" });
-    this.card = h("div", { class: "ndai-card", role: "dialog", "aria-label": "NDAi finding", hidden: "" });
+    this.card = h("div", { class: "ndai-card", role: "dialog", "aria-label": "ndAI finding", hidden: "" });
     this.panel = h("div", { class: "ndai-panel", role: "dialog", "aria-modal": "false", "aria-labelledby": "ndai-panel-title", hidden: "" });
     this.toasts = h("div", { class: "ndai-toasts", "aria-live": "polite" });
     root.append(h("style", {}, css), this.marksLayer, this.badge, this.card, this.panel, this.toasts, this.notices);
@@ -561,10 +561,10 @@ class Inspector {
       b.dataset.state = state;
       b.textContent = state === "green" ? "✓" : state === "checking" ? "" : state === "error" ? "?" : String(count);
       b.setAttribute("aria-label",
-        state === "checking" ? "NDAi is checking this prompt"
-        : state === "error" ? "NDAi couldn't check this prompt"
-        : state === "green" ? "NDAi: nothing sensitive found"
-        : `NDAi: ${count} ${count === 1 ? "finding" : "findings"}, ${TIER_WORD[tier].toLowerCase()}`);
+        state === "checking" ? "ndAI is checking this prompt"
+        : state === "error" ? "ndAI couldn't check this prompt"
+        : state === "green" ? "ndAI: nothing sensitive found"
+        : `ndAI: ${count} ${count === 1 ? "finding" : "findings"}, ${TIER_WORD[tier].toLowerCase()}`);
     }
     b.hidden = false;
     const { x, y } = this.badgeSpot(clip);
