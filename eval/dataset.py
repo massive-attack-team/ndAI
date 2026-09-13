@@ -70,6 +70,33 @@ SAMPLES: list[Sample] = [
     Sample("How do people usually quarantine failed plates in a screening workflow?", False, "public_domain"),
     Sample("Explain why hepatotoxicity is often dose limiting for small molecule oncology candidates.", False, "public_domain"),
 
+    # --- strategic_plan / financial_plan / research_report (CONTRACT.md) ----
+    # Verbatim
+    Sample("We are splitting the commercial team into two pods: enterprise accounts running the autoloader, and self-serve registry API customers on the per-seat plan. Tighten this sentence.", True, "verbatim"),
+    Sample("Lead investor has proposed a pre-money valuation of 410 million dollars for a 70 million dollar raise, with a board seat and standard pro-rata rights. Clean this up.", True, "verbatim"),
+    Sample("Cohort four dosing started this week, testing the intermittent schedule proposed after cohort three: three days on, two days off, versus the continuous dosing used in cohorts one through three. Turn this into an update email.", True, "verbatim"),
+
+    # Paraphrase
+    Sample("We're planning to split the sales team into two groups - one for big accounts using our hardware, one for smaller customers on the API plan - after a competitor built out a dedicated enterprise sales team. How should I present this internally?", True, "paraphrase"),
+    Sample("Our lead investor wants to value us at just over four hundred million before the money for a raise of around seventy million, plus a board seat and the usual follow-on rights. Is that a normal structure for this stage?", True, "paraphrase"),
+    Sample("We just started a new animal group testing an on-off dosing pattern instead of continuous dosing, following up on what we saw in the previous group. Too early to say if it's working. How do I write this up for the team?", True, "paraphrase"),
+    Sample("Two other term sheets are still on the table, so we're pushing back on the lead investor's request to convert our preference to participating above a 3x return. What questions should the board be asking?", True, "paraphrase"),
+
+    # Summary
+    Sample("Summarise: engineering budget for the quarter splits roughly 60/40 between platform and hardware work, tracking close to last quarter's split.", True, "summary"),
+    Sample("In two sentences: we're restructuring the commercial team into enterprise and self-serve pods in response to a competitor's move, but staff haven't been told yet.", True, "summary"),
+
+    # Mixed public and private
+    Sample("Standard oncology protocol draws blood at day 7, 14 and 21 for liver enzymes. We changed it to catch early hepatotoxicity signal the old protocol likely missed. Is that a reasonable change?", True, "mixed"),
+    Sample("Board seats and pro-rata rights for the lead investor are standard in a Series C. Ours also has a follow-on commitment from two existing investors we haven't announced. Is that normal to keep quiet?", True, "mixed"),
+
+    # --- hard negatives: same field, public knowledge ------------------------
+    Sample("Why do enterprise software vendors often split into separate enterprise and self-serve sales motions once they land a handful of large accounts?", False, "public_domain"),
+    Sample("What valuation range and typical board and pro-rata terms are common for Series C rounds in biotech tooling companies right now?", False, "public_domain"),
+    Sample("What is a typical intermittent dosing strategy used to manage a narrow therapeutic window in oncology drug development?", False, "public_domain"),
+    Sample("What's the standard blood draw schedule for monitoring liver enzymes in a preclinical toxicology study?", False, "public_domain"),
+    Sample("What preference structures are common in venture term sheets, and how does participating preferred differ from non-participating?", False, "public_domain"),
+
     # --- unrelated ----------------------------------------------------------
     Sample("Write a limerick about a cat who refuses to get off the keyboard.", False, "unrelated"),
     Sample("What is the difference between a left join and a full outer join?", False, "unrelated"),
