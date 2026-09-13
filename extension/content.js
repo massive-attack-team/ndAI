@@ -175,7 +175,7 @@
   }
 
   chrome.runtime.sendMessage({ type: "health" }, (health) => {
-    if (!health) toast("NDAi is not running. Start the local service before pasting internal material.");
-    else if (!health.semantic) toast("NDAi is running on the fallback model. Paraphrase detection is off.");
+    if (!health) toast("ndAI is not running. Start the local service before pasting internal material.");
+    else if (!health.semantic) toast("ndAI is running on the fallback model. Paraphrase detection is off.");
   });
 })();

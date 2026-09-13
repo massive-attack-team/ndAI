@@ -39,16 +39,16 @@ Respond with JSON only: {"rewritten": "..."}"""
 
 FEWSHOT = [
     (
-        "Our Series C closed at $4.2M on a $38M post-money with a 1x non-participating preference — draft an investor update.",
-        "We recently closed an early-stage funding round on standard preference terms — draft an investor update.",
+        "Our Series C closed at $4.2M on a $38M post-money with a 1x non-participating preference. Draft an investor update.",
+        "We recently closed an early-stage funding round on standard preference terms. Draft an investor update.",
     ),
     (
         "Project Halberd moves cohort retention from 31% to 44% by day 21; summarise the risks.",
         "An internal initiative meaningfully improves three-week cohort retention; summarise the risks.",
     ),
     (
-        "Our assay showed the modified enzyme reaches 2.3x turnover at pH 6.4 using the phosphate-buffer protocol — how should I frame this for a paper?",
-        "Our assay showed a substantial turnover improvement under modified buffer conditions — how should I frame this for a paper?",
+        "Our assay showed the modified enzyme reaches 2.3x turnover at pH 6.4 using the phosphate-buffer protocol. How should I frame this for a paper?",
+        "Our assay showed a substantial turnover improvement under modified buffer conditions. How should I frame this for a paper?",
     ),
 ]
 

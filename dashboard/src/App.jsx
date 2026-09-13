@@ -61,7 +61,7 @@ function Header({ stats, health }) {
   return (
     <header>
       <div className="flex items-baseline justify-between gap-6">
-        <h1 className="text-xl font-semibold">NDAi</h1>
+        <h1 className="text-xl font-semibold">ndAI</h1>
         <ServiceState health={health} />
       </div>
 
@@ -167,7 +167,7 @@ function Detail({ event }) {
           weak={!cat}
         />
         <Compare
-          term="NDAi"
+          term="ndAI"
           detail={
             prov
               ? `${Math.round(prov.score * 100)}% match to ${prov.label}, ${Math.round(

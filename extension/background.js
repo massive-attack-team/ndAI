@@ -29,8 +29,8 @@ async function inspect(text, destination) {
       action: cfg.failClosed ? "block" : "allow",
       rule: "detector unavailable",
       message: cfg.failClosed
-        ? "NDAi is not running, so this text has not been checked. Start the local service, or switch to fail-open in the extension settings."
-        : "NDAi is not running. This text was not checked.",
+        ? "ndAI is not running, so this text has not been checked. Start the local service, or switch to fail-open in the extension settings."
+        : "ndAI is not running. This text was not checked.",
       findings: [],
       degraded: true,
     };

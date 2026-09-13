@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "NDAi",
+  "name": "ndAI",
   "version": "0.1.0",
   "description": "Checks what you are about to send to an AI assistant before it leaves your machine.",
   "permissions": ["storage", "clipboardRead"],

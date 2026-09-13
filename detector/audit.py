@@ -103,6 +103,24 @@ def recent(limit: int = 100) -> list[dict[str, Any]]:
     return out
 
 
+def detection_findings() -> list[dict[str, Any]]:
+    """Every 'detection'-kind finding ever logged, across the whole event
+    log, each stamped with '_user' from its parent event. This is "the
+    team" for detector/calibration.py - every user this local install has
+    ever seen, one shared log, no new networking. init() runs a no-op
+    CREATE TABLE IF NOT EXISTS, so a fresh install with no events table yet
+    just returns an empty list rather than raising."""
+    init()
+    with _lock, _conn() as conn:
+        rows = conn.execute("SELECT user, findings FROM events").fetchall()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        for f in json.loads(r["findings"] or "[]"):
+            if f.get("kind") == "detection":
+                out.append({**f, "_user": r["user"]})
+    return out
+
+
 def stats() -> dict[str, Any]:
     with _lock, _conn() as conn:
         row = conn.execute(

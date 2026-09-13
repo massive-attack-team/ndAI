@@ -1,6 +1,6 @@
 """Stage 2: does this text derive from our internal corpus?
 
-This is the only part of NDAi that is genuinely novel, so it is the part
+This is the only part of ndAI that is genuinely novel, so it is the part
 the eval harness measures. Everything else is plumbing around it.
 
 Two indexes are built: internal documents and known-public documents from the
@@ -20,7 +20,7 @@ from typing import Iterable, List
 import numpy as np
 import yaml
 
-from . import config
+from . import calibration, config
 from .embeddings import get_embedder
 
 log = logging.getLogger("ndai.provenance")
@@ -173,13 +173,23 @@ class ProvenanceDetector:
         # public ones (negative margin) - an absolute bypass let those through
         # as false positives. The margin is what's actually discriminating
         # here, verbatim or not; keep it required for every hit.
-        eligible = (int_scores >= config.PROVENANCE_HIT) & (margins >= config.PUBLIC_MARGIN)
+        #
+        # The margin itself isn't one flat constant anymore: detector/
+        # calibration.py nudges it per document type based on this team's
+        # own audit history (CONTRACT.md #3's 3 in-scope types), computed
+        # once here rather than once per sentence. A type with too little
+        # history, or a doc outside the 3 in-scope types (chunk_type=None),
+        # falls back to the unadjusted config.PUBLIC_MARGIN.
+        margin_by_type = calibration.margin_by_type()
 
         hits = []
-        for i, ok in enumerate(eligible):
-            if not ok:
+        for i, int_score in enumerate(int_scores):
+            if not (self.internal.chunks and int_score >= config.PROVENANCE_HIT):
                 continue
             chunk = self.internal.chunks[int(int_pos[i])]
+            threshold = margin_by_type.get(chunk.chunk_type, config.PUBLIC_MARGIN)
+            if margins[i] < threshold:
+                continue
             _, start, end = spans[i]
             verbatim = float(int_scores[i]) >= config.PROVENANCE_STRONG
             hits.append(ProvenanceHit(

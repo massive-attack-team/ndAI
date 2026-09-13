@@ -1,8 +1,7 @@
-"""Person 2's deliverable: text in, DetectionResult out.
+"""Text in, DetectionResult out. Shape is fixed by CONTRACT.md #2.
 
-Shape is fixed by CONTRACT.md #2 - build against that, not against how the
-response/policy side (Person 1) ends up consuming it. This module doesn't
-touch pipeline.py or policy.py.
+This module does not touch pipeline.py or policy.py, and does not need to
+know how the response/policy side consumes its output.
 
 Two sources of findings, per sentence:
 

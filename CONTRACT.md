@@ -1,53 +1,40 @@
-# Detection ↔ Response contract
+# Detection to response contract
 
-Two people, two features, built in parallel today. This file is the interface
-between them — read it before writing code so neither person blocks on the
-other's progress.
+This file defines the interface between detection (what kind of sensitive
+thing a piece of text is, and how sensitive) and response (what happens to
+it, given who is sending it and where it is going). Detection does not need
+to know how response uses its output. Response does not need to know how
+detection arrived at its judgment. Only the handoff shape below has to stay
+stable.
 
-- **Person 1 — Detection.** Given raw text, decide what kind of sensitive
-  thing it is and how sensitive. Owns `detector/provenance.py`,
-  `detector/categories.py`, `corpus/`, and the corpus-building work.
-- **Person 2 — Response.** Given a detection judgment plus who's sending and
-  where it's going, decide what happens to the prompt. Owns `detector/policy.py`,
-  `policy.yaml`, `detector/rewrite.py`.
+## 1. Scope
 
-Detection doesn't need to know how response uses its output. Response doesn't
-need to know how detection arrived at its judgment. The only thing that has to
-be agreed on up front is the shape of the handoff below — build against that,
-not against each other's in-progress code.
-
----
-
-## 1. Scope for today
-
-Three document types only:
+Three document types:
 
 - `strategic_plan`
 - `financial_plan`
 - `research_report`
 
-(PII/credentials already exist as a separate stage — `detector/secrets_scan.py`
-— and are out of scope for this contract; they're pattern/entropy-based, not
-part of the type+sensitivity judgment described here.)
+PII and credentials are handled by a separate stage, `detector/secrets_scan.py`,
+and are out of scope for this contract: they are pattern and entropy based,
+not part of the type and sensitivity judgment described here.
 
-Detection mechanism is the same for all three: embed the candidate text,
-compare it against a reference corpus, score the gap between "matches our
-internal material" and "matches material that's already public/known." The
-reference corpus differs per type (see §3), but the comparison mechanism does
-not — one code path, three corpora.
+Detection works the same way for all three types: embed the candidate text,
+compare it against a reference corpus, and score the gap between "matches
+our internal material" and "matches material that is already public or
+known." The reference corpus differs per type (see §3), but the comparison
+mechanism does not: one code path, three corpora.
 
-**Not in scope today:** live web lookup to check research freshness. Static
-corpus only. This is a deliberate, documented limitation — see the
-"Research freshness is local-only for now" entry in `README.md`'s Limits
-section for the reasoning and the tradeoff if it's revisited later.
-
----
+Live web lookup to check research freshness is out of scope. Detection uses
+a static corpus only. This is a deliberate, documented limitation; see the
+"Research freshness is local-only for now" entry in README.md's Limits
+section for the reasoning and the tradeoff if it is revisited later.
 
 ## 2. The handoff shape
 
-Detection produces one `DetectionResult` per inspected text. Response consumes
-it and nothing else — it does not re-read the original corpus or re-run
-embeddings.
+Detection produces one `DetectionResult` per inspected text. Response
+consumes it and nothing else: it does not re-read the original corpus or
+re-run embeddings.
 
 ```
 Finding:
@@ -68,112 +55,60 @@ DetectionResult:
   types_present: [str, ...]           # distinct types across findings
 ```
 
-Notes for both people:
+Notes:
 
-- **Sentence-level, not prompt-level.** Score each sentence/chunk independently
-  and keep every finding above threshold — don't collapse to one verdict for
-  the whole prompt. A long prompt with one leaked line should still trip a
-  finding on that line.
-- **A prompt can carry multiple findings.** Response must decide off the full
-  `findings` list, not just `overall_sensitivity` in isolation — e.g. a
-  financial finding at tier 2 plus a strategic finding at tier 3 should not
-  quietly resolve to "tier 3, one type," swallowing the fact that there are
-  two distinct exposures with different `matched_source`s.
-- **Thresholds are Person 1's starting call, visible to Person 2.** Whatever
-  cutoff decides "this counts as a match at all" belongs in `detector/config.py`
-  as a named constant (following the existing `PROVENANCE_HIT` /
-  `PUBLIC_MARGIN` pattern), not hardcoded inside the matching function. If
-  Person 2's testing shows the policy is firing on noise or missing obvious
-  cases, the fix might be a threshold change, not a policy change — it needs
-  to be visible enough that either person can trace it there.
-
----
+- **Sentence-level, not prompt-level.** Score each sentence or chunk
+  independently and keep every finding above threshold, instead of
+  collapsing to one verdict for the whole prompt. A long prompt with one
+  leaked line should still trip a finding on that line.
+- **A prompt can carry multiple findings.** Response must decide off the
+  full `findings` list, not just `overall_sensitivity` in isolation. For
+  example, a financial finding at tier 2 plus a strategic finding at tier 3
+  should not quietly resolve to "tier 3, one type," which would hide the
+  fact that there are two distinct exposures with different
+  `matched_source`s.
+- **Thresholds decide what counts as a match at all.** They belong in
+  `detector/config.py` as named constants (following the existing
+  `PROVENANCE_HIT` / `PUBLIC_MARGIN` pattern), not hardcoded inside the
+  matching function, so they stay traceable when detection needs retuning
+  or response is misfiring on them.
 
 ## 3. Type taxonomy and sensitivity rubric
 
-Sensitivity is about disclosure harm of the specific passage, not the document
-type as a whole — a document can contain findings at different tiers.
+Sensitivity is about the disclosure harm of the specific passage, not the
+document type as a whole. A document can contain findings at different
+tiers.
 
 | Tier | Strategic plan | Financial plan | Research report |
 |---|---|---|---|
 | **0** public | Already announced publicly | Published figures / public guidance | Published findings |
 | **1** internal | Internal process/roadmap already loosely known company-wide | Internal budget mechanics, no deal attached | Methodology/approach discussion, no results |
-| **2** confidential | Confidential internal strategy, not explosive if it leaked but not for outside eyes | Confidential projections/plans not yet public | In-progress findings, not yet written up for publication |
+| **2** confidential | Confidential internal strategy: not explosive if leaked, but not for outside eyes | Confidential projections/plans not yet public | In-progress findings, not yet written up for publication |
 | **3** restricted | Unannounced M&A, pricing, market entry, or competitive move pre-disclosure | Unpublished figures tied to a specific deal, raise, or guidance not yet released | Unpublished results carrying competitive, regulatory, or IP risk if disclosed early |
 
-If a passage doesn't clearly fit a tier, round down — false negatives here get
-caught by whichever *other* stage flags them (provenance, secrets); false
-positives are the thing that gets the tool turned off.
-
----
+If a passage does not clearly fit a tier, round down. False negatives here
+get caught by whichever other stage flags them (provenance, secrets); false
+positives are what gets the tool turned off.
 
 ## 4. Confidence bands
 
-Confidence describes *how the match was found*, not how bad it is — keep it
+Confidence describes how the match was found, not how bad it is. Keep it
 separate from sensitivity.
 
-- **`verbatim`** — near-identical text match to a specific internal source
-  (score above the "strong" threshold). Strongest evidence, always shown with
-  `matched_source`.
-- **`paraphrase`** — semantic match to internal material that clears the
-  margin over the best public-corpus match (same mechanism as
-  `detector/provenance.py` today: internal score high AND beats public score
+- **`verbatim`**: near-identical text match to a specific internal source
+  (score above the "strong" threshold). Strongest evidence, always shown
+  with `matched_source`.
+- **`paraphrase`**: semantic match to internal material that clears the
+  margin over the best public-corpus match (the mechanism in
+  `detector/provenance.py`: internal score high, and beats the public score
   by `PUBLIC_MARGIN`). This is the core "paraphrase recall" case the whole
   product is judged on.
-- **`weak`** — type signal only (looks like a strategic/financial/research
-  passage) with no corpus match clearing the margin. Weakest evidence — no
-  `matched_source`, `score`/`public_baseline_score` may be null.
+- **`weak`**: type signal only (the passage reads as strategic, financial,
+  or research material) with no corpus match clearing the margin. Weakest
+  evidence: no `matched_source`, and `score`/`public_baseline_score` may be
+  null.
 
-Response should generally treat these as decreasing trust: `verbatim` can
-justify a block on its own, `weak` alone probably shouldn't escalate past a
-warn regardless of sensitivity tier, since it's the band most likely to be a
-false positive.
-
----
-
-## 5. What each person needs to deliver
-
-**Person 1 (Detection) is done when:**
-- `corpus/internal/` and `corpus/public/` (or a parallel structure) hold
-  synthetic examples for all three types, with the public side written as
-  genuine same-topic hard negatives, not obviously-different filler.
-- Given a text input, produces a `DetectionResult` matching the schema in §2,
-  with real (not placeholder) sensitivity/confidence/evidence values.
-- Thresholds live in `detector/config.py` as named, commented constants.
-
-**Person 2 (Response) is done when:**
-- Given a `DetectionResult` (real or fixture) plus `destination` and `role`,
-  returns an action (`allow` / `warn` / `sanitize` / `block`) plus a
-  human-readable reason — extending the existing `policy.yaml` /
-  `detector/policy.py` pattern to key off `type` and `confidence`, not just
-  `sensitivity` and `destination_class` as it does today.
-- Can be fully built and tested **before** Person 1's detection is real, using
-  hand-written fixture `DetectionResult` objects covering each
-  tier × type × confidence combination.
-
----
-
-## 6. Building independently before integration
-
-Person 2: don't wait on real detection. Write 8-10 fixture `DetectionResult`
-objects by hand (one per interesting tier/confidence combination) and build
-the policy logic against those. Swapping in Person 1's real output later
-should require no changes to the decision logic itself, only to where the
-`DetectionResult` comes from.
-
-Person 1: don't worry about how response uses the output. Build and tune
-detection in isolation — the measure of done is "does this produce the right
-`DetectionResult` for a given input," not "does this produce the right final
-action."
-
----
-
-## 7. Status
-
-Detection (Person 1's side) has a first pass built already — typed corpus,
-frontmatter-driven type/tier, `detector/detection.py`'s `detect()` producing
-real `DetectionResult` values off the hashing fallback (not yet verified
-against the real `sentence-transformers` backend). Whoever picks up Person 1's
-role can pick up from there rather than starting cold; nothing here blocks
-Person 2 from starting the fixture-based response work described in §6 right
-now.
+Response should treat these as decreasing trust: `verbatim` can justify a
+block on its own; `weak` alone should not escalate past a warn regardless
+of sensitivity tier, since it is the band most likely to be a false
+positive.
