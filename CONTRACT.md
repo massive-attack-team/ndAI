@@ -4,10 +4,10 @@ Two people, two features, built in parallel today. This file is the interface
 between them — read it before writing code so neither person blocks on the
 other's progress.
 
-- **Person 2 — Detection.** Given raw text, decide what kind of sensitive
+- **Person 1 — Detection.** Given raw text, decide what kind of sensitive
   thing it is and how sensitive. Owns `detector/provenance.py`,
   `detector/categories.py`, `corpus/`, and the corpus-building work.
-- **Person 1 — Response.** Given a detection judgment plus who's sending and
+- **Person 2 — Response.** Given a detection judgment plus who's sending and
   where it's going, decide what happens to the prompt. Owns `detector/policy.py`,
   `policy.yaml`, `detector/rewrite.py`.
 
@@ -79,11 +79,11 @@ Notes for both people:
   financial finding at tier 2 plus a strategic finding at tier 3 should not
   quietly resolve to "tier 3, one type," swallowing the fact that there are
   two distinct exposures with different `matched_source`s.
-- **Thresholds are Person 2's starting call, visible to Person 1.** Whatever
+- **Thresholds are Person 1's starting call, visible to Person 2.** Whatever
   cutoff decides "this counts as a match at all" belongs in `detector/config.py`
   as a named constant (following the existing `PROVENANCE_HIT` /
   `PUBLIC_MARGIN` pattern), not hardcoded inside the matching function. If
-  Person 1's testing shows the policy is firing on noise or missing obvious
+  Person 2's testing shows the policy is firing on noise or missing obvious
   cases, the fix might be a threshold change, not a policy change — it needs
   to be visible enough that either person can trace it there.
 
@@ -133,7 +133,7 @@ false positive.
 
 ## 5. What each person needs to deliver
 
-**Person 2 (Detection) is done when:**
+**Person 1 (Detection) is done when:**
 - `corpus/internal/` and `corpus/public/` (or a parallel structure) hold
   synthetic examples for all three types, with the public side written as
   genuine same-topic hard negatives, not obviously-different filler.
@@ -141,13 +141,13 @@ false positive.
   with real (not placeholder) sensitivity/confidence/evidence values.
 - Thresholds live in `detector/config.py` as named, commented constants.
 
-**Person 1 (Response) is done when:**
+**Person 2 (Response) is done when:**
 - Given a `DetectionResult` (real or fixture) plus `destination` and `role`,
   returns an action (`allow` / `warn` / `sanitize` / `block`) plus a
   human-readable reason — extending the existing `policy.yaml` /
   `detector/policy.py` pattern to key off `type` and `confidence`, not just
   `sensitivity` and `destination_class` as it does today.
-- Can be fully built and tested **before** Person 2's detection is real, using
+- Can be fully built and tested **before** Person 1's detection is real, using
   hand-written fixture `DetectionResult` objects covering each
   tier × type × confidence combination.
 
@@ -155,13 +155,25 @@ false positive.
 
 ## 6. Building independently before integration
 
-Person 1: don't wait on real detection. Write 8-10 fixture `DetectionResult`
+Person 2: don't wait on real detection. Write 8-10 fixture `DetectionResult`
 objects by hand (one per interesting tier/confidence combination) and build
-the policy logic against those. Swapping in Person 2's real output later
+the policy logic against those. Swapping in Person 1's real output later
 should require no changes to the decision logic itself, only to where the
 `DetectionResult` comes from.
 
-Person 2: don't worry about how response uses the output. Build and tune
+Person 1: don't worry about how response uses the output. Build and tune
 detection in isolation — the measure of done is "does this produce the right
 `DetectionResult` for a given input," not "does this produce the right final
 action."
+
+---
+
+## 7. Status
+
+Detection (Person 1's side) has a first pass built already — typed corpus,
+frontmatter-driven type/tier, `detector/detection.py`'s `detect()` producing
+real `DetectionResult` values off the hashing fallback (not yet verified
+against the real `sentence-transformers` backend). Whoever picks up Person 1's
+role can pick up from there rather than starting cold; nothing here blocks
+Person 2 from starting the fixture-based response work described in §6 right
+now.
