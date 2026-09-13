@@ -42,9 +42,9 @@ def _fresh_db() -> None:
     context.init()
 
 
-def _match(doc: str, chunk: int, basis: str = "near_miss") -> context.Match:
+def _match(doc: str, chunk: int, basis: str = "near_miss", span: tuple[int, int] = (0, 40)) -> context.Match:
     _, type_, tier = TOTALS[doc]
-    return context.Match(doc, chunk, type_, tier, basis, 0.7, 0.08, (0, 40))
+    return context.Match(doc, chunk, type_, tier, basis, 0.7, 0.08, span)
 
 
 class Sender:
@@ -56,7 +56,8 @@ class Sender:
         self.event = 0
 
     def send(self, user: str, dest_class: str, matches: list[context.Match],
-             action: str = "allow", ago_days: float = 0) -> tuple[context.ContextSignal, str]:
+             action: str = "allow", ago_days: float = 0,
+             edited: list[tuple[int, int]] = ()) -> tuple[context.ContextSignal, str]:
         now = time.time() - ago_days * DAY
         team = self.engine.team_of(user)
         signal = context.assess(user=user, team=team, destination_class=dest_class,
@@ -67,7 +68,7 @@ class Sender:
         self.event += 1
         context.record(event_id=self.event, user=user, team=team, destination="fixture",
                        destination_class=dest_class, action=action, matches=matches,
-                       signal=signal, now=now)
+                       signal=signal, edited_spans=edited, now=now)
         return signal, action
 
 
@@ -88,18 +89,14 @@ DANA, ALEX, PRIYA, SAM = "dana@kestrelbio.com", "alex@kestrelbio.com", "priya@ke
 
 def fixture_cases():
     def pieces_from_one_person(s):
-        # CONTRACT.md #9 review (14 Sep): cumulative tier 2+ to a consumer
-        # destination tries sanitize before falling back to block - pipeline.py
-        # already downgrades sanitize -> block when the rewrite is refused or
-        # unavailable, so this is "try to sanitize, block if that doesn't hold
-        # up" rather than a hardcoded block. This fixture checks the policy
-        # decision directly (no rewrite step here), so it expects sanitize.
+        # Tier 3 pieced together still blocks: "restricted to unknown
+        # destination" sits above "pieced together across prompts".
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
-        return _expect(*s.send(DANA, "public_consumer", [_match(MEMO, 4)]), scope="user", want_action="sanitize")
+        return _expect(*s.send(DANA, "public_consumer", [_match(MEMO, 4)]), scope="user", want_action="block")
 
     def pieces_across_a_team(s):
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
-        return _expect(*s.send(ALEX, "public_consumer", [_match(MEMO, 1)]), scope="team", want_action="sanitize")
+        return _expect(*s.send(ALEX, "public_consumer", [_match(MEMO, 1)]), scope="team", want_action="block")
 
     def other_teams_do_not_add_up(s):
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
@@ -107,8 +104,24 @@ def fixture_cases():
 
     def blocked_sends_never_left(s):
         s.send(DANA, "public_consumer", [_match(MEMO, 0)], action="block")
-        s.send(DANA, "public_consumer", [_match(MEMO, 2)], action="sanitize")
+        s.send(DANA, "public_consumer", [_match(MEMO, 2)], action="sanitize", edited=[(0, 40)])
         return _expect(*s.send(DANA, "public_consumer", [_match(MEMO, 4)]), scope=None, want_action="allow")
+
+    def sanitised_prompt_counts_what_it_left_unedited(s):
+        # The sanitiser edited the first sentence and sent the second as typed.
+        s.send(DANA, "public_consumer", [_match(MEMO, 2, span=(0, 40)), _match(MEMO, 3, span=(41, 90))],
+               action="sanitize", edited=[(0, 40)])
+        return _expect(*s.send(DANA, "public_consumer", [_match(MEMO, 4)]), scope="user", want_action="block")
+
+    def every_contributing_sentence_gets_a_finding(s):
+        s.send(SAM, "public_consumer", [_match(REORG, 0)])
+        signal, action = s.send(SAM, "public_consumer",
+                                [_match(REORG, 1, span=(0, 40)), _match(REORG, 2, span=(41, 90))])
+        spans = sorted(tuple(f.span) for f in signal.escalations)
+        problems = _expect(signal, action, scope="user", want_action="sanitize")
+        if spans != [(0, 40), (41, 90)]:
+            problems.append(f"cumulative findings should cover both sentences, got spans {spans}")
+        return problems
 
     def internal_model_never_counts(s):
         s.send(SAM, "private_local", [_match(MEMO, 0)])
@@ -141,6 +154,11 @@ def fixture_cases():
         s.send(DANA, "enterprise_vetted", [_match(MEMO, 0)], action="warn")
         return _expect(*s.send(DANA, "enterprise_vetted", [_match(MEMO, 4)]), scope="user", want_action="sanitize")
 
+    def tier_two_doc_pieced_together_is_sanitized(s):
+        # CONTRACT.md #9 review: tier 2 tries sanitize before block.
+        s.send(SAM, "public_consumer", [_match(REORG, 0)])
+        return _expect(*s.send(SAM, "public_consumer", [_match(REORG, 1)]), scope="user", want_action="sanitize")
+
     def tier_one_doc_adds_up_but_is_allowed(s):
         s.send(DANA, "public_consumer", [_match(BUDGET, 0)])
         return _expect(*s.send(DANA, "public_consumer", [_match(BUDGET, 1)]), scope="user", want_action="allow")
@@ -164,14 +182,20 @@ def fixture_cases():
         return problems
 
     return [pieces_from_one_person, pieces_across_a_team, other_teams_do_not_add_up,
-            blocked_sends_never_left, internal_model_never_counts, destination_classes_are_separate,
+            blocked_sends_never_left, sanitised_prompt_counts_what_it_left_unedited,
+            every_contributing_sentence_gets_a_finding, internal_model_never_counts, destination_classes_are_separate,
             resending_the_same_section, request_noise_on_one_chunk, two_sections_in_one_prompt,
-            old_sends_expire, vetted_vendor_gets_rewrite_not_block, tier_one_doc_adds_up_but_is_allowed,
+            old_sends_expire, vetted_vendor_gets_rewrite_not_block,
+            tier_two_doc_pieced_together_is_sanitized, tier_one_doc_adds_up_but_is_allowed,
             graph_shows_what_left]
 
 
+COHORT4 = "research_report/cohort-four-interim.md"
+
 # Real prompts, in order. `expect` on a step: the source of a cumulative finding
-# that step must carry, or None for none at all.
+# that step must carry, or None for none at all. An optional fifth element lists
+# phrases that must not be in what actually reaches the destination (the
+# sanitised text on sanitize, nothing on block, the prompt on allow/warn).
 SEQUENCES = [
     ("acquisition memo, one person, two prompts", [
         (DANA, "gemini.google.com", "We are thinking about buying a microfluidics company for just under "
@@ -190,6 +214,16 @@ SEQUENCES = [
          "in the second group, but we see liver problems past twelve milligrams per kilo.", None),
         (PRIYA, "chatgpt.com", "In the second cohort, KB-2291 reduced tumour volume by 47 percent relative "
          "to vehicle control at day 21.", RESULTS),
+    ]),
+    ("tier 2 pieced together: every contributing sentence is sanitised", [
+        (PRIYA, "chatgpt.com", "We started dosing the fourth group this week on a schedule of three days "
+         "on and two days off.", None),
+        # Repeats the section already out (scores higher) and adds a new one.
+        # Redacting only the strongest sentence would send the day-7 result.
+        (PRIYA, "chatgpt.com", "We started dosing the fourth group this week on a schedule of three days "
+         "on and two days off. The first blood results show liver enzymes staying flat at day seven "
+         "in the intermittent group.", COHORT4,
+         ["liver enzymes staying flat", "three days on and two days off"]),
     ]),
     ("harmless prompts to a vetted vendor never add up", [
         (SAM, "platform.openai.com", text, None) for text in (
@@ -220,11 +254,13 @@ SEQUENCES = [
 
 def run_sequences() -> int:
     from detector import pipeline, rewrite
+    from sanitiser import llm
 
-    # Keep the check offline. Without a rewrite, sanitize becomes block, and
-    # neither counts as sent, which is all these sequences depend on.
+    # Keep the check offline and deterministic: no Ollama rewrites, so the
+    # sanitiser's generalise falls back to redaction.
     rewrite.health = lambda: False
     rewrite.rewrite = lambda _text: rewrite.RewriteResult(None, False, "rewrite disabled in check")
+    llm.generalise = lambda *_args, **_kwargs: None
     state = pipeline.warm_up()
     if not state["semantic"]:
         print("sequences skipped: hashing fallback, near misses are meaningless")
@@ -234,9 +270,13 @@ def run_sequences() -> int:
     for name, steps in SEQUENCES:
         _fresh_db()
         problems = []
-        for user, dest, text, want in steps:
+        for user, dest, text, want, *withheld in steps:
             r = pipeline.inspect(text, destination=dest, user=user, role="default")
             got = [f["label"] for f in r.findings if f["kind"] == "context"]
+            sent = {"block": "", "sanitize": r.rewritten or ""}.get(r.action, text)
+            for phrase in (withheld[0] if withheld else []):
+                if phrase in sent:
+                    problems.append(f"{text[:50]!r}: {phrase!r} reached {dest} ({r.action}): {sent!r}")
             if want is None and got:
                 problems.append(f"{text[:50]!r}: unexpected cumulative finding on {got} ({r.action})")
             if want is not None and want not in got:

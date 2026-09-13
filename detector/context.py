@@ -49,13 +49,15 @@ CREATE TABLE IF NOT EXISTS context_edges (
     basis TEXT,
     score REAL,
     margin REAL,
-    escalated INTEGER NOT NULL DEFAULT 0   -- this send completed a cumulative finding on doc
+    escalated INTEGER NOT NULL DEFAULT 0,  -- this send completed a cumulative finding on doc
+    sent INTEGER NOT NULL DEFAULT 0        -- this sentence reached the destination unedited
 );
 CREATE INDEX IF NOT EXISTS idx_context_doc ON context_edges(doc, destination_class, ts);
 """
 
 # Content in a prompt with these outcomes actually reached the destination.
-# `sanitize` sends the rewrite instead and `block` sends nothing.
+# `block` sends nothing. `sanitize` sends the rewrite: a sentence it edited
+# didn't leave, one it left alone did (see record()).
 LEFT_ACTIONS = ("allow", "warn")
 
 
@@ -116,6 +118,15 @@ def _conn() -> sqlite3.Connection:
 
 def init() -> None:
     with _lock, _conn() as conn:
+        columns = {r["name"] for r in conn.execute("PRAGMA table_info(context_edges)")}
+        if columns and "sent" not in columns:
+            # Databases from before `sent` existed: every sanitised prompt
+            # counted as not sent, which is what they recorded.
+            conn.execute("ALTER TABLE context_edges ADD COLUMN sent INTEGER NOT NULL DEFAULT 0")
+            conn.execute(
+                f"UPDATE context_edges SET sent = 1 WHERE action IN ({','.join('?' * len(LEFT_ACTIONS))})",
+                LEFT_ACTIONS,
+            )
         conn.executescript(SCHEMA)
 
 
@@ -141,9 +152,8 @@ def _prior(conn: sqlite3.Connection, *, doc: str, destination_class: str,
            column: str, value: str, since: float) -> tuple[set[int], set[int]]:
     rows = conn.execute(
         f"""SELECT chunk, event_id FROM context_edges
-            WHERE doc = ? AND destination_class = ? AND {column} = ? AND ts >= ?
-              AND action IN ({",".join("?" * len(LEFT_ACTIONS))})""",
-        (doc, destination_class, value, since, *LEFT_ACTIONS),
+            WHERE doc = ? AND destination_class = ? AND {column} = ? AND ts >= ? AND sent = 1""",
+        (doc, destination_class, value, since),
     ).fetchall()
     return {r["chunk"] for r in rows}, {r["event_id"] for r in rows}
 
@@ -186,43 +196,67 @@ def assess(*, user: str, team: str | None, destination_class: str,
                 )
                 signal.exposures.append(exposure)
                 if exposure.escalated:
-                    signal.escalations.append(_finding(doc_matches, exposure))
-                    break   # one cumulative finding per doc; user scope wins over team
+                    signal.escalations.extend(_findings(doc_matches, exposure))
+                    break   # one scope per doc; user scope wins over team
     return signal
 
 
-def _finding(doc_matches: list[Match], exposure: Exposure) -> Finding:
-    strongest = max(doc_matches, key=lambda m: m.score)
-    return Finding(
-        type=strongest.type,
-        sensitivity=strongest.tier,
-        confidence="cumulative",
-        span=strongest.span,
-        evidence=Evidence(
-            matched_source=exposure.doc,
-            score=strongest.score,
-            public_baseline_score=round(strongest.score - strongest.margin, 3),
-            margin=strongest.margin,
-            excerpt="",
-            matched_chunk=strongest.chunk,
-        ),
-    )
+def _findings(doc_matches: list[Match], exposure: Exposure) -> list[Finding]:
+    """One cumulative finding per sentence that landed on the document.
+
+    Not just the strongest: the sanitiser edits exactly the spans it is given,
+    so a single span would send every other piece of the document in the same
+    prompt through untouched.
+    """
+    by_span: dict[tuple[int, int], Match] = {}
+    for m in doc_matches:
+        if m.span not in by_span or m.score > by_span[m.span].score:
+            by_span[m.span] = m
+    return [
+        Finding(
+            type=m.type,
+            sensitivity=m.tier,
+            confidence="cumulative",
+            span=m.span,
+            evidence=Evidence(
+                matched_source=exposure.doc,
+                score=m.score,
+                public_baseline_score=round(m.score - m.margin, 3),
+                margin=m.margin,
+                excerpt="",
+                matched_chunk=m.chunk,
+            ),
+        )
+        for m in sorted(by_span.values(), key=lambda m: m.span)
+    ]
 
 
 def record(*, event_id: int | None, user: str, team: str | None, destination: str,
            destination_class: str, action: str, matches: list[Match],
-           signal: ContextSignal | None = None, now: float | None = None) -> None:
+           signal: ContextSignal | None = None, edited_spans: list[tuple[int, int]] = (),
+           now: float | None = None) -> None:
+    """`edited_spans`: character ranges of the original prompt the sanitiser
+    changed. On `sanitize`, a match outside all of them was sent as typed."""
     if not matches:
         return
     ts = time.time() if now is None else now
     escalated = {f.evidence.matched_source for f in signal.escalations} if signal else set()
+
+    def sent(m: Match) -> bool:
+        if action in LEFT_ACTIONS:
+            return True
+        if action != "sanitize":
+            return False
+        start, end = m.span
+        return not any(start < e_end and e_start < end for e_start, e_end in edited_spans)
+
     with _lock, _conn() as conn:
         conn.executemany(
             """INSERT INTO context_edges (ts, event_id, user, team, destination,
-               destination_class, action, doc, chunk, type, tier, basis, score, margin, escalated)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+               destination_class, action, doc, chunk, type, tier, basis, score, margin, escalated, sent)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             [(ts, event_id, user, team, destination, destination_class, action,
-              m.doc, m.chunk, m.type, m.tier, m.basis, m.score, m.margin, m.doc in escalated)
+              m.doc, m.chunk, m.type, m.tier, m.basis, m.score, m.margin, m.doc in escalated, sent(m))
              for m in matches],
         )
 
@@ -267,7 +301,7 @@ def graph(*, teams: dict[str, list[str]], now: float | None = None,
         node(u, kind="user", label=r["user"], team=r["team"])
         node(d, kind="doc", label=r["doc"], type=r["type"], tier=r["tier"],
              chunk_total=totals.get(r["doc"], (0,))[0])
-        left = r["action"] in LEFT_ACTIONS and r["destination_class"] != "private_local"
+        left = bool(r["sent"]) and r["destination_class"] != "private_local"
 
         e = edges.setdefault((u, d), {"kind": "sent", "events": set(), "chunks_left": set(),
                                       "chunks_held": set(), "escalated": False, "near_miss_only": True})

@@ -245,7 +245,7 @@ From the 13 Sep checks in §7. Nothing here is in force until both people agree.
 
 ---
 
-## 9. Context stage (proposed, built, not yet agreed)
+## 9. Context stage (agreed and merged in `b018abe`; fixes below under review)
 
 Detection judges one prompt at a time, so a document that goes out a piece per
 prompt never trips it. `detector/context.py` sits between detection and
@@ -254,9 +254,8 @@ each destination class, per person and per declared team. When the current
 prompt completes enough of one document, it adds a `cumulative` finding to the
 `DetectionResult` before response sees it.
 
-It is built and running in `detector/pipeline.py`, but the changes below touch
-both people's files, so none of it is in force until both agree. Reverting
-`policy.yaml`'s new rule turns it off.
+Both people agreed it after the review below, and it was merged in `b018abe`.
+Reverting `policy.yaml`'s `pieced together across prompts` rule turns it off.
 
 **What changes at the handoff (§2)**
 
@@ -264,9 +263,10 @@ both people's files, so none of it is in force until both agree. Reverting
   `matched_source`. Null for `weak`.
 - `confidence` gains a fourth value, `cumulative`. It is set only by the
   context stage, never by `detect()`. `matched_source` is the document being
-  pieced together, `sensitivity` is that document's tier, `span` is the
-  strongest sentence in the current prompt that contributed, and `excerpt` is
-  empty.
+  pieced together, `sensitivity` is that document's tier, and `excerpt` is
+  empty. There is one `cumulative` finding per sentence of the current prompt
+  that landed on that document, each with its own `span`, so the sanitiser
+  edits every piece (see "After merge" below).
 - `detection.detect_with_near_misses()` returns `(DetectionResult, [NearMiss])`.
   A near miss clears `PROVENANCE_HIT` and beats the public corpus by at least
   `CONTEXT_MARGIN` (0.04) but not by `PUBLIC_MARGIN`. Near misses never reach
@@ -275,8 +275,8 @@ both people's files, so none of it is in force until both agree. Reverting
 **When a `cumulative` finding is added**
 
 For one document and one destination class, counting only content that
-actually left (`allow` or `warn`, never `sanitize`, `block` or `private_local`)
-within `CONTEXT_WINDOW_DAYS` (14), all of these must hold. The person is checked
+actually left (`allow` or `warn`; on `sanitize`, only sentences the sanitiser
+left unedited; never `block` or `private_local`) within `CONTEXT_WINDOW_DAYS` (14), all of these must hold. The person is checked
 first, then their team:
 
 - the current prompt adds a chunk that hadn't already gone out,
@@ -291,8 +291,10 @@ corpus needs a lower coverage and a higher chunk count.
 
 - `policy.yaml` gains `teams:` (declared membership, never inferred) and one
   rule, `pieced together across prompts`: `cumulative`, tier 2 or above, to
-  `public_consumer` or `unknown`, is blocked. Other destinations fall through
-  to the existing tier rules (tier 3 to a vetted vendor is sanitized).
+  `public_consumer` or `unknown`, is sanitized. It sits below `restricted to
+  unknown destination`, so tier 3 to those destinations is blocked. Other
+  destinations fall through to the existing tier rules (tier 3 to a vetted
+  vendor is sanitized).
 - `PolicyEngine.team_of(user)` reads `teams:`.
 
 **Deliberately left out**
@@ -371,3 +373,56 @@ resolving together rather than either of us guessing at the other's intent
 on the parts that don't touch §9 directly (the finding-dict shape in
 particular should follow this branch's version - main's version silently
 stopped matching what `extension/content.js` expects).
+
+**After merge, 13 Sep (Hoang Phuc): a pieced-together leak got through the
+sanitiser. Fixed on `fix/cumulative-sanitise`, not merged, needs Peter and Chi**
+
+On `a1fca75`, a cumulative finding could send part of the document it was
+built from. Reproduced twice:
+
+- **Tier 3.** Review point 1 says tier 3 is unaffected, but rules are first
+  match and `pieced together across prompts` sat above `restricted to unknown
+  destination`, so tier 3 cumulative to consumer AI was sanitized. `8dbc6a5`
+  noted this and relied on the sanitiser's verify loop to fail closed. Dana's
+  second acquisition-memo prompt (litigation plus escrow) had the escrow
+  sentence redacted and the litigation sentence sent to chatgpt.com.
+- **Tier 2.** Priya sends cohort four's dosing schedule, then a prompt that
+  repeats it and adds the day-7 liver result. The repeated sentence scored
+  higher and was redacted. The day-7 result was sent.
+
+Three causes:
+
+1. A cumulative finding carried one span, the strongest sentence, and the
+   sanitiser edits exactly the spans it gets.
+2. The verify loop re-runs `detect()`, which never reports near misses, so it
+   passes any rewrite of a cumulative finding.
+3. `context_edges` counted a sanitised prompt as sending nothing, so sentences
+   that went out unedited were missing from later totals.
+
+Fixes, one commit each:
+
+- `292934e`: the rule moved below the restricted rule, so tier 3 blocks.
+  This is what review point 1 assumed.
+- `d57be24`: one cumulative finding per contributing sentence. For documents
+  with a cumulative finding, `sanitiser/service.py` counts near misses left in
+  the candidate as residual findings, so leftovers escalate and fail closed to
+  block. Two findings on one sentence make one edit, not two. A new
+  `context_edges.sent` column records per sentence whether it went out
+  unedited; older databases are migrated with their old meaning.
+
+After both: `check_context` 16/16 fixtures and 6/6 sequences, including a new
+tier 2 sequence that checks what actually reaches the destination.
+`response_fixtures` 10/10, `check_contract` 7/15 (unchanged). `sanitiser_eval`
+unchanged apart from latency: `leak_clearance` 0.8, `block_escalation` 0.2.
+
+Still open: sanitising can leave a prompt that is only placeholders, for example when
+§8's request-sentence false findings get redacted along with real ones. That's
+review point 1's "is the rewrite still a useful prompt" gap.
+
+**Decided 13 Sep (Hoang Phuc): file scans count towards the context stage as
+built.** `pipeline.inspect_file()` runs each row or page through `inspect()`
+with logging on. So rows of one file count as separate prompts, and a row that
+passes is recorded as sent even if the file is never uploaded. Kept on purpose:
+a document split across rows or files is the piece-at-a-time leak this stage
+exists to catch. The cost is that someone who only scans a file can escalate
+sooner on later prompts.

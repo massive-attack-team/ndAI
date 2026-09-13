@@ -29,12 +29,12 @@ POLICY: dict[tuple[int, Confidence], str] = {
     # cumulative: the context stage (CONTRACT.md #9) only fires this once
     # real chunks from a real document have actually added up across
     # several prompts - confirmed evidence, not a guess, so it's treated at
-    # least as seriously as verbatim. Not hard "block" like (3, verbatim)
-    # though: policy.yaml's "pieced together across prompts" rule already
-    # routes tier 2 AND tier 3 cumulative findings to sanitize first (see
-    # CONTRACT.md #9's review note) - this table shouldn't second-guess that
-    # by blocking outright. If redact still leaks, escalation (below) and
-    # verify.py's re-detection loop fail it closed to block regardless.
+    # least as seriously as verbatim. Not hard "block" like (3, verbatim):
+    # policy.yaml sends tier 2 cumulative to consumer AI, and tier 3 to a
+    # vetted vendor, here to sanitize first; tier 3 to consumer AI is blocked
+    # before it reaches this table. service._detector_for makes the verify
+    # loop count leftover near misses on the same document, so if redact
+    # still leaks, escalation (below) fails it closed to block.
     (3, "cumulative"): "redact",
     (2, "cumulative"): "redact",
     (1, "cumulative"): "generalise",   # never actually reaches here - policy
