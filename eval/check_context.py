@@ -88,12 +88,18 @@ DANA, ALEX, PRIYA, SAM = "dana@kestrelbio.com", "alex@kestrelbio.com", "priya@ke
 
 def fixture_cases():
     def pieces_from_one_person(s):
+        # CONTRACT.md #9 review (14 Sep): cumulative tier 2+ to a consumer
+        # destination tries sanitize before falling back to block - pipeline.py
+        # already downgrades sanitize -> block when the rewrite is refused or
+        # unavailable, so this is "try to sanitize, block if that doesn't hold
+        # up" rather than a hardcoded block. This fixture checks the policy
+        # decision directly (no rewrite step here), so it expects sanitize.
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
-        return _expect(*s.send(DANA, "public_consumer", [_match(MEMO, 4)]), scope="user", want_action="block")
+        return _expect(*s.send(DANA, "public_consumer", [_match(MEMO, 4)]), scope="user", want_action="sanitize")
 
     def pieces_across_a_team(s):
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
-        return _expect(*s.send(ALEX, "public_consumer", [_match(MEMO, 1)]), scope="team", want_action="block")
+        return _expect(*s.send(ALEX, "public_consumer", [_match(MEMO, 1)]), scope="team", want_action="sanitize")
 
     def other_teams_do_not_add_up(s):
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
