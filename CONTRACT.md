@@ -302,7 +302,7 @@ corpus needs a lower coverage and a higher chunk count.
 - Inferring roles or teams from prompts. The person being judged could train it.
 - Using history to decide what counts as confidential. The corpus decides; history only adds up evidence.
 - Escalating `weak` findings. They carry no document, so there is nothing to add up.
-- Need-to-know or anomaly alerts. NDAi stops accidental disclosure, not insiders.
+- Need-to-know or anomaly alerts. ndAI stops accidental disclosure, not insiders.
 - Storing prompt text. `context_edges` holds doc, chunk, score, who, where and what policy did.
 
 **Checked on 13 Sep** (bge-small-en-v1.5): `python -m eval.check_context` passes
