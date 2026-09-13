@@ -221,7 +221,7 @@ detector/         local inspection service (FastAPI, 127.0.0.1 only)
                    (context_edges sits beside it: doc, chunk, score, never text)
 sanitiser/         stage 4, per-span rewrite with a re-detection verification loop
 extension/         Chrome MV3, TypeScript, file upload and a review UI
-dashboard/         Vite + React, live stream, context graph, and the three-way comparison
+dashboard/         Vite + React + TypeScript, live event stream with a per-turn gate breakdown
 eval/              labelled dataset and metrics harnesses
 corpus/internal    fake company confidential material
 corpus/public      hard negatives, same field, public sources
@@ -244,3 +244,4 @@ anyone nearly leaked, which is the exposure this product exists to prevent.
 5. Coverage beyond the browser: a proxy that also covers IDE assistants and command-line tools.
 6. Produce an edited, downloadable copy of an uploaded spreadsheet, not just a decision and preview per row.
 7. Show calibration and per-user history in the dashboard directly, instead of only through the API.
+8. Port the team-and-document exposure graph (`dashboard/src/ContextGraph.jsx`) into the new TypeScript dashboard. It still works, but nothing currently renders it.
