@@ -2,9 +2,9 @@
 // explicit decision on each before the file can go out.
 //
 // Components (plain functions over the DOM, no framework):
-//   header · intro (file + progress) · document tabs
+//   header · intro (verdict + progress) · document tabs
 //   DocumentView  — extracted text with change marks; "Markup" vs "Result preview"
-//   ChangeList    — filter chips + ChangeCard (diff, evidence, decision)
+//   ChangeList    — filter chips + ChangeCard (diff + decision)
 //   Footer        — readiness + Cancel / Upload
 //   StatusScreen  — loading, submitting, done, cancelled, missing, error
 //
@@ -22,7 +22,8 @@ import type { Change, Decision, ReviewDocument, ReviewSession } from "./types";
 import "./review.css";
 
 type Phase = "loading" | "review" | "submitting" | "done" | "cancelled" | "missing" | "error";
-type Filter = "all" | Decision;
+/** "all" is the working queue: only changes still waiting for a decision. */
+type Filter = "all" | "approved" | "rejected";
 type View = "markup" | "result";
 
 const app = document.getElementById("app")!;
@@ -59,6 +60,7 @@ const doc = (): ReviewDocument => session!.documents[docIndex];
 const allChanges = () => session!.documents.flatMap((d) => d.changes);
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const formatBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`);
+const inFilter = (c: Change, f: Filter) => (f === "all" ? c.decision === "pending" : c.decision === f);
 
 function tally(changes: Change[]) {
   const t = { all: changes.length, pending: 0, approved: 0, rejected: 0 };
@@ -86,7 +88,6 @@ function closeTab(): void {
 function header(): HTMLElement {
   return h("header", { class: "rv-header" },
     h("div", { class: "rv-brand" },
-      h("span", { class: "rv-logo", "aria-hidden": "true" }, "N"),
       h("span", { class: "rv-brand-name" }, "ndAI"),
       h("span", { class: "rv-brand-sep", "aria-hidden": "true" }, "/"),
       h("span", {}, "Upload review")),
@@ -175,12 +176,11 @@ function renderReview(): void {
   const progressTrack = h("div", { class: "rv-progress-track", role: "progressbar", "aria-label": "Changes reviewed", "aria-valuemin": "0" }, progressFill);
   const progressText = h("span", { class: "rv-progress-text" });
   const filters = h("div", { class: "rv-filters", role: "toolbar", "aria-label": "Filter changes" });
-  const empty = h("p", { class: "rv-empty", hidden: "" }, "No changes match this filter.");
+  const empty = h("p", { class: "rv-empty", hidden: "" });
   const list = h("div", { class: "rv-list" });
   const docBody = h("div", { class: "rv-doc-body" });
   const footerStatus = h("p", { class: "rv-footer-status", "aria-live": "polite" });
   const submit = button("Upload sanitized file", "primary", () => void submitReview());
-  const pages = d.kind === "pdf" ? plural(d.pageCount, "page") : "Text file";
 
   const viewButtons = (["markup", "result"] as const).map((v) => {
     const b = h("button", { type: "button", class: "rv-seg", "aria-pressed": String(view === v) }, v === "markup" ? "Markup" : "Result preview");
@@ -189,7 +189,7 @@ function renderReview(): void {
   });
   const docPanel = h("section", { class: "rv-doc", "aria-label": "Document preview", "data-view": view },
     h("div", { class: "rv-panel-head" },
-      h("h2", { class: "rv-panel-title" }, pages),
+      h("h2", { class: "rv-panel-title" }, d.kind === "pdf" ? plural(d.pageCount, "page") : "Text file"),
       h("div", { class: "rv-segmented", role: "group", "aria-label": "Document view" }, ...viewButtons)),
     docBody);
 
@@ -199,18 +199,10 @@ function renderReview(): void {
   const intro = h("section", { class: "rv-intro" },
     h("div", { class: "rv-file" },
       h("div", { class: "rv-file-icon", "aria-hidden": "true" }, kind),
-      h("div", { class: "rv-file-text" },
-        h("p", { class: "rv-eyebrow" }, "Approve each change before upload"),
-        h("h1", { class: "rv-file-name" }, s.documents.length > 1 ? `${s.documents.length} documents` : d.name),
-        h("div", { class: "rv-file-meta" },
-          h("span", { class: "rv-meta" }, pages),
-          h("span", { class: "rv-meta" }, formatBytes(d.size)),
-          h("span", { class: "rv-meta" }, `To ${s.host}`),
-          h("span", { class: "rv-chip", "data-tier": d.verdict.tier }, TIER_WORD[d.verdict.tier])))),
+      h("h1", { class: "rv-file-name" }, s.documents.length > 1 ? `${s.documents.length} documents` : d.name)),
     h("div", { class: "rv-progress" },
       h("div", { class: "rv-progress-row" }, h("span", {}, "Reviewed"), progressText),
-      progressTrack,
-      h("p", { class: "rv-verdict" }, d.verdict.message)));
+      progressTrack));
 
   const tabs = s.documents.length > 1 && h("nav", { class: "rv-tabs", "aria-label": "Documents" }, ...s.documents.map((x, i) => {
     const t = tally(x.changes);
@@ -221,9 +213,7 @@ function renderReview(): void {
   }));
 
   const aside = h("aside", { class: "rv-changes", "aria-label": "Proposed changes" },
-    h("div", { class: "rv-panel-head rv-changes-head" },
-      h("h2", { class: "rv-panel-title" }, "Changes"),
-      h("p", { class: "rv-shortcuts" }, h("kbd", {}, "J"), h("kbd", {}, "K"), " move · ", h("kbd", {}, "A"), " approve · ", h("kbd", {}, "R"), " keep")),
+    h("div", { class: "rv-panel-head rv-changes-head" }, h("h2", { class: "rv-panel-title" }, "Changes")),
     filters,
     list);
 
@@ -235,6 +225,7 @@ function renderReview(): void {
 
   fill(list, ...d.changes.map(changeCard), empty);
   renderFilters();
+  applyFilter();
   renderProgress();
   renderFooter();
   renderText();
@@ -270,11 +261,10 @@ function changeCard(c: Change): HTMLElement {
     before = h("del", {}, c.before);
   }
 
-  const choice = (decision: Decision, label: Child[]) => {
-    const b = h("button", { type: "button", class: "rv-choice", "data-choice": decision, "aria-pressed": "false" }, ...label);
+  const choice = (decision: Decision, label: string) => {
+    const b = h("button", { type: "button", class: "rv-choice", "data-choice": decision, "aria-pressed": "false" }, label);
     b.addEventListener("click", (e) => {
       e.stopPropagation();
-      select(c.id);
       decide(c, c.decision === decision ? "pending" : decision); // pressing again undoes
     });
     return b;
@@ -284,11 +274,8 @@ function changeCard(c: Change): HTMLElement {
     class: "rv-card", tabindex: "-1", "data-change": c.id, "data-tier": c.tier, "aria-labelledby": titleId,
   },
     h("div", { class: "rv-card-head" },
-      h("span", { class: "rv-card-num" }, String(c.index)),
       h("h3", { class: "rv-card-title", id: titleId }, c.title),
       h("span", { class: "rv-chip", "data-tier": c.tier }, TIER_WORD[c.tier])),
-    h("p", { class: "rv-card-meta" }, [c.page ? `Page ${c.page}` : null, c.evidence].filter(Boolean).join(" · ") || "Text file"),
-    h("p", { class: "rv-card-reason" }, c.reason),
     h("div", { class: "rv-diff" },
       h("div", { class: "rv-diff-row", "data-side": "before" },
         h("span", { class: "rv-diff-label" }, "Original"),
@@ -297,10 +284,9 @@ function changeCard(c: Change): HTMLElement {
       h("div", { class: "rv-diff-row", "data-side": "after" },
         h("span", { class: "rv-diff-label" }, "Sanitized"),
         h("p", { class: "rv-diff-text" }, c.contextBefore, h("ins", {}, c.after), c.contextAfter))),
-    h("div", { class: "rv-decide", role: "group", "aria-label": `Decision for change ${c.index}` },
-      choice("approved", [h("span", { class: "rv-choice-icon", "aria-hidden": "true" }, "✓"), "Approve change"]),
-      choice("rejected", ["Keep original"])),
-    h("p", { class: "rv-card-note" }));
+    h("div", { class: "rv-decide", role: "group", "aria-label": `Decision for ${c.title}` },
+      choice("approved", "Approve"),
+      choice("rejected", "Keep original")));
 
   card.addEventListener("click", () => select(c.id, { scrollDoc: true }));
   refs!.cards.set(c.id, card);
@@ -316,23 +302,15 @@ function updateCard(c: Change): void {
   for (const b of card.querySelectorAll<HTMLButtonElement>(".rv-choice")) {
     b.setAttribute("aria-pressed", String(b.dataset.choice === c.decision));
   }
-  const note = card.querySelector<HTMLElement>(".rv-card-note")!;
-  const blocked = c.decision === "rejected" && c.tier === "red";
-  note.dataset.tone = blocked ? "danger" : "";
-  note.textContent =
-    c.decision === "approved" ? `Approved: replaced with ${c.after}.`
-    : blocked ? "Kept. Blocked content can't be uploaded, so this file will stay on hold."
-    : c.decision === "rejected" ? "Kept: this passage uploads unchanged."
-    : "";
 }
 
 function renderFilters(): void {
   if (!refs) return;
   const t = tally(doc().changes);
-  const items: Array<[Filter, string]> = [["all", "All"], ["pending", "Pending"], ["approved", "Approved"], ["rejected", "Kept"]];
-  fill(refs.filters, ...items.map(([f, label]) => {
+  const items: Array<[Filter, string, number]> = [["all", "All", t.pending], ["approved", "Approved", t.approved], ["rejected", "Kept", t.rejected]];
+  fill(refs.filters, ...items.map(([f, label, count]) => {
     const b = h("button", { type: "button", class: "rv-filter", "aria-pressed": String(filter === f) },
-      label, h("span", { class: "rv-filter-count" }, String(t[f])));
+      label, h("span", { class: "rv-filter-count" }, String(count)));
     b.addEventListener("click", () => { filter = f; renderFilters(); applyFilter(); });
     return b;
   }));
@@ -342,11 +320,12 @@ function applyFilter(): void {
   if (!refs) return;
   let shown = 0;
   for (const c of doc().changes) {
-    const visible = filter === "all" || c.decision === filter;
+    const visible = inFilter(c, filter);
     refs.cards.get(c.id)!.hidden = !visible;
     if (visible) shown++;
   }
   refs.empty.hidden = shown > 0;
+  refs.empty.textContent = filter === "all" ? "All changes reviewed." : "Nothing here yet.";
 }
 
 function renderProgress(): void {
@@ -412,18 +391,21 @@ function selectFirstPending(): void {
 function decide(c: Change, decision: Decision): void {
   c.decision = decision;
   persist();
-  updateCard(c);
   if (view === "result") renderText();
-  syncDocument();
   renderFilters();
   applyFilter();
   renderProgress();
   renderFooter();
-  if (decision === "pending") return;
+
+  if (decision === "pending") { select(c.id); return; }
+  // The decided card leaves the queue, so the next pending card slides into its
+  // place. Select it in place: no scrolling, which is what made the page jump.
   const list = doc().changes;
   const i = list.indexOf(c);
   const next = [...list.slice(i + 1), ...list.slice(0, i)].find((x) => x.decision === "pending");
-  if (next) select(next.id, { scrollList: true, scrollDoc: true });
+  select(next?.id ?? null);
+  if (next) refs?.cards.get(next.id)?.querySelector<HTMLButtonElement>('.rv-choice[data-choice="approved"]')?.focus({ preventScroll: true });
+  updateCard(c);
 }
 
 async function cancel(): Promise<void> {
@@ -518,24 +500,23 @@ function revealInDocument(id: string): void {
   if (!refs) return;
   const esc = CSS.escape(id);
   refs.docBody.querySelector<HTMLElement>(`[data-change="${esc}"], [data-changes~="${esc}"]`)
-    ?.scrollIntoView({ block: "center", behavior: scrollBehavior() });
+    ?.scrollIntoView({ block: "nearest", behavior: scrollBehavior() });
 }
 
-// ---- keyboard -------------------------------------------------------------------------------------
+// ---- keyboard (kept, just no on-screen hint) ------------------------------------------------------
 
 document.addEventListener("keydown", (e) => {
   if (phase !== "review" || e.metaKey || e.ctrlKey || e.altKey) return;
   if ((e.target as HTMLElement).closest("input, textarea, select, [contenteditable]")) return;
   const key = e.key.toLowerCase();
-  const visible = doc().changes.filter((c) => filter === "all" || c.decision === filter);
+  const visible = doc().changes.filter((c) => inFilter(c, filter));
 
   if (key === "j" || key === "k") {
     if (!visible.length) return;
     e.preventDefault();
     const at = visible.findIndex((c) => c.id === selected);
     const next = at < 0 ? visible[0] : visible[Math.min(visible.length - 1, Math.max(0, at + (key === "j" ? 1 : -1)))];
-    select(next.id, { scrollList: true, scrollDoc: true });
-    refs?.cards.get(next.id)?.focus({ preventScroll: true });
+    select(next.id, { scrollList: true });
     return;
   }
   const current = doc().changes.find((c) => c.id === selected);
