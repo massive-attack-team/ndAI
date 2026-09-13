@@ -1,3 +1,7 @@
+---
+type: strategic_plan
+tier: 3
+---
 # Unreleased Roadmap - FY27 (CONFIDENTIAL)
 
 Q1. Ship the cartridge autoloader to three design partners only. No public

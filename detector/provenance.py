@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 import numpy as np
+import yaml
 
 from . import config
 from .embeddings import get_embedder
@@ -43,11 +44,47 @@ def split_sentences(text: str) -> List[str]:
     return [p.strip() for p in parts if len(p.strip()) > 25] or [text.strip()]
 
 
+def split_sentences_with_spans(text: str) -> list[tuple[str, int, int]]:
+    """Sentences plus their character offsets into `text`, for per-finding spans."""
+    spans = []
+    cursor = 0
+    for sentence in split_sentences(text):
+        idx = text.find(sentence, cursor)
+        if idx == -1:
+            idx = cursor
+        spans.append((sentence, idx, idx + len(sentence)))
+        cursor = idx + len(sentence)
+    return spans
+
+
+def parse_frontmatter(raw: str) -> tuple[dict, str]:
+    """Strip a leading `---\\n key: value \\n---` block and return (meta, body).
+
+    Corpus docs use this to declare their `type` and `tier` so the type
+    taxonomy and sensitivity rubric (see CONTRACT.md) live with the document,
+    not hardcoded in the detector. Docs without frontmatter (e.g. the public
+    corpus) just return an empty meta dict.
+    """
+    if not raw.startswith("---\n"):
+        return {}, raw
+    end = raw.find("\n---", 4)
+    if end == -1:
+        return {}, raw
+    try:
+        meta = yaml.safe_load(raw[4:end]) or {}
+    except yaml.YAMLError:
+        meta = {}
+    body = raw[end + 4:].lstrip("\n")
+    return meta if isinstance(meta, dict) else {}, body
+
+
 @dataclass
 class Chunk:
     doc: str
     idx: int
     text: str
+    chunk_type: str | None = None   # strategic_plan | financial_plan | research_report, from frontmatter
+    tier: int | None = None         # 0-3 sensitivity, from frontmatter
 
 
 @dataclass
@@ -58,6 +95,10 @@ class ProvenanceHit:
     public_score: float
     margin: float
     verbatim: bool
+    type: str | None = None
+    sensitivity: int | None = None
+    confidence: str = "paraphrase"   # "verbatim" | "paraphrase", see CONTRACT.md #4
+    span: tuple[int, int] = (0, 0)
 
 
 class Index:
@@ -69,10 +110,13 @@ class Index:
     def build(self, folder: Path) -> None:
         self.chunks = []
         for path in sorted(_walk(folder)):
-            text = path.read_text(encoding="utf-8", errors="ignore")
+            raw = path.read_text(encoding="utf-8", errors="ignore")
+            meta, text = parse_frontmatter(raw)
             rel = str(path.relative_to(folder))
+            chunk_type = meta.get("type")
+            tier = meta.get("tier")
             for i, piece in enumerate(chunk_words(text)):
-                self.chunks.append(Chunk(rel, i, piece))
+                self.chunks.append(Chunk(rel, i, piece, chunk_type=chunk_type, tier=tier))
         if not self.chunks:
             self.matrix = None
             log.warning("%s index is empty (%s)", self.name, folder)
@@ -104,33 +148,49 @@ class ProvenanceDetector:
         self.internal.build(config.INTERNAL_CORPUS)
         self.public.build(config.PUBLIC_CORPUS)
 
-    def check(self, text: str) -> ProvenanceHit | None:
-        """Score the prompt sentence by sentence and keep the worst offender.
+    def check_all(self, text: str) -> list[ProvenanceHit]:
+        """Score every sentence independently and return every eligible hit.
 
         Sentence granularity matters: a 500-word prompt with two leaked lines
-        averages down to nothing if you embed the whole thing at once.
+        averages down to nothing if you embed the whole thing at once. Unlike
+        `check()`, this keeps every sentence that clears threshold, not just
+        the worst one - a prompt can carry more than one finding (see
+        CONTRACT.md #2).
         """
-        sentences = split_sentences(text)
+        spans = split_sentences_with_spans(text)
+        sentences = [s for s, _, _ in spans]
         vecs = get_embedder().encode(sentences)
         int_scores, int_pos = self.internal.best(vecs)
         pub_scores, _ = self.public.best(vecs)
 
         margins = int_scores - pub_scores
         eligible = (int_scores >= config.PROVENANCE_HIT) & (margins >= config.PUBLIC_MARGIN)
-        if not eligible.any():
-            return None
 
-        masked = np.where(eligible, int_scores, -1.0)
-        i = int(masked.argmax())
-        chunk = self.internal.chunks[int(int_pos[i])]
-        return ProvenanceHit(
-            score=float(int_scores[i]),
-            doc=chunk.doc,
-            excerpt=chunk.text[:180],
-            public_score=float(pub_scores[i]),
-            margin=float(margins[i]),
-            verbatim=float(int_scores[i]) >= config.PROVENANCE_STRONG,
-        )
+        hits = []
+        for i, ok in enumerate(eligible):
+            if not ok:
+                continue
+            chunk = self.internal.chunks[int(int_pos[i])]
+            _, start, end = spans[i]
+            verbatim = float(int_scores[i]) >= config.PROVENANCE_STRONG
+            hits.append(ProvenanceHit(
+                score=float(int_scores[i]),
+                doc=chunk.doc,
+                excerpt=chunk.text[:180],
+                public_score=float(pub_scores[i]),
+                margin=float(margins[i]),
+                verbatim=verbatim,
+                type=chunk.chunk_type,
+                sensitivity=chunk.tier,
+                confidence="verbatim" if verbatim else "paraphrase",
+                span=(start, end),
+            ))
+        return hits
+
+    def check(self, text: str) -> ProvenanceHit | None:
+        """Single worst-offender hit, for callers that only want one verdict."""
+        hits = self.check_all(text)
+        return max(hits, key=lambda h: h.score) if hits else None
 
 
 _detector: ProvenanceDetector | None = None

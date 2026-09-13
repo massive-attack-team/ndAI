@@ -1,3 +1,7 @@
+---
+type: research_report
+tier: 3
+---
 # KB-2291 Preclinical Summary (RESTRICTED - UNPUBLISHED)
 
 In the second cohort, KB-2291 reduced tumour volume by 47 percent relative to

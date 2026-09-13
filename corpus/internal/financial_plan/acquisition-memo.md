@@ -1,3 +1,7 @@
+---
+type: financial_plan
+tier: 3
+---
 # Project Nightjar - Board Memo (RESTRICTED)
 
 Recommendation: acquire Helix Assay Systems for a headline figure of 384 million

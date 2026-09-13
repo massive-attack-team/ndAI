@@ -14,30 +14,41 @@ import numpy as np
 from . import config
 from .embeddings import get_embedder
 
+# Labels for strategic_plan, financial_plan and research_report match the
+# type taxonomy in CONTRACT.md - this classifier is the "weak" confidence
+# signal (type-only, no corpus match) described there. system_architecture,
+# legal_position and internal_prompt_logic are out of scope for that contract
+# but stay here since they're separate, already-working category findings.
 PROTOTYPES: dict[str, list[str]] = {
     "system_architecture": [
         "internal service topology, database schema design and API endpoint layout",
         "how our backend services authenticate and talk to each other in production",
         "infrastructure configuration, deployment topology and internal hostnames",
     ],
-    "financial_strategy": [
-        "unannounced quarterly revenue forecast and earnings projection",
-        "merger and acquisition target, deal valuation and transaction timeline",
-        "internal pricing model, margin structure and discount authority",
+    "strategic_plan": [
+        "unannounced market entry, competitive response or go-to-market plan",
+        "unreleased product roadmap, launch date and feature commitments",
+        "internal prioritisation of upcoming releases not yet announced",
+        "merger or acquisition rationale and target selection, before announcement",
+        "internal org design or restructuring not yet communicated to staff",
     ],
-    "rnd_result": [
+    "financial_plan": [
+        "unannounced quarterly revenue forecast and earnings projection",
+        "merger and acquisition deal valuation, pricing and transaction timeline",
+        "internal pricing model, margin structure and discount authority",
+        "fundraising terms, valuation and investor allocation ahead of a close",
+        "internal budget allocation across teams or cost centres",
+    ],
+    "research_report": [
         "unpublished experimental result, assay outcome and dose response finding",
         "efficacy and toxicity data from an ongoing preclinical study",
         "proof technique, derivation or model architecture from unpublished research",
+        "interim or in-progress study data not yet through final analysis",
     ],
     "legal_position": [
         "draft contract terms, settlement position and litigation risk assessment",
         "patent application content prior to filing",
         "internal legal advice about our exposure in a dispute",
-    ],
-    "product_roadmap": [
-        "unreleased product roadmap, launch date and feature commitments",
-        "internal prioritisation of upcoming releases not yet announced",
     ],
     "internal_prompt_logic": [
         "internal scoring rubric or decision rules used by an automated system",
@@ -47,12 +58,16 @@ PROTOTYPES: dict[str, list[str]] = {
 
 SENSITIVITY = {
     "system_architecture": 2,
-    "financial_strategy": 3,
-    "rnd_result": 3,
+    "strategic_plan": 2,
+    "financial_plan": 3,
+    "research_report": 3,
     "legal_position": 3,
-    "product_roadmap": 2,
     "internal_prompt_logic": 2,
 }
+
+# The three types this feature (CONTRACT.md) targets - used to filter
+# category hits down to in-scope findings.
+TARGET_TYPES = ("strategic_plan", "financial_plan", "research_report")
 
 
 @dataclass
