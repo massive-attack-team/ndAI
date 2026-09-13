@@ -1,6 +1,9 @@
-# Detector API, for Hugging Face Spaces (Docker SDK) — Render's free tier
-# doesn't have enough RAM for sentence-transformers; HF Spaces' free CPU
-# tier gives 16GB, which does. Local installs don't use this at all.
+# Detector API, deployed to Google Cloud Run (Deploy from repository,
+# build type Dockerfile) for the submission's Production URL. Render's free
+# tier OOMs on sentence-transformers (512MB isn't enough); HF Spaces' free
+# tier turned out Docker-SDK-only-on-PRO. Cloud Run's Always Free tier
+# (2M requests/mo, 360k GiB-seconds/mo) covers demo-level traffic at $0 with
+# 1GiB configured per instance. Local installs don't use this file at all.
 FROM python:3.11-slim
 
 WORKDIR /app
