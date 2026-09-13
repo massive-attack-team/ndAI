@@ -61,9 +61,18 @@ shows it. Never demo on the fallback.
 text ─▶ 1. secrets      regex + Shannon entropy      credentials, PII
       ─▶ 2. provenance  cosine vs internal corpus    minus best public match
       ─▶ 3. category    prototype embeddings         what kind of thing is this
+      ─▶ 2b. context    what already left            per person and team, per document
       ─▶ 4. policy      policy.yaml, first match     sensitivity x destination x role
       ─▶ 5. rewrite     local Ollama                 only when policy says sanitize
 ```
+
+The context stage catches a document that leaks a piece at a time. Each piece
+alone is too small or too reworded to count. The stage remembers which sections
+of which internal documents already reached consumer AI (or a vetted vendor),
+from whom, and from which declared team. The prompt that completes enough of one
+document gets a `cumulative` finding. It stores corpus references, never prompt
+text. The dashboard draws the result as a graph: teams, people, documents,
+destinations. Rules and thresholds are in `CONTRACT.md` §9.
 
 Provenance scores **per sentence**, not per prompt. A 500-word prompt with two
 leaked lines averages down to nothing if you embed the whole thing at once.
@@ -93,6 +102,13 @@ a contract and jurisdiction problem. NDAi stops the accidental disclosure:
 the pasted `.env`, the draft board memo, the internal schema. Say so in the pitch
 before a judge says it for you.
 
+**History adds up evidence; it does not define confidential.** The context
+stage only counts matches against documents the corpus already marks internal,
+and teams come from `policy.yaml`, not from what people type. Learning either
+from prompts would let a repeated leak become normal. Near misses feed it, so it
+records some noise. It takes distinct sections across distinct prompts before
+anything escalates.
+
 **Interception is shallow on purpose.** Paste and send, not `fetch` monkey
 patching. Deeper hooks catch more and break the host page every time it ships a
 change, and a tool that breaks ChatGPT gets uninstalled the same week.
@@ -113,6 +129,8 @@ scope for v1.
 
 ```bash
 python -m eval.run_eval
+python -m eval.check_contract     # single-prompt acceptance scenarios
+python -m eval.check_context      # multi-prompt leaks, and harmless runs that must not add up
 ```
 
 Three systems on the same labelled prompts: pattern scanner, generic category
@@ -141,9 +159,11 @@ detector/       local inspection service (FastAPI, 127.0.0.1 only)
   secrets_scan  stage 1, patterns and entropy
   provenance    stage 2, company-specific matching. the novel part
   categories    stage 3, prototype embeddings, no training
+  context       stage 2b, per-person and per-team exposure, the context graph
   policy        stage 4, evaluates policy.yaml
   rewrite       stage 5, local Ollama
   audit         SQLite log, hashes and redacted previews, not raw text
+                (context_edges sits beside it: doc, chunk, score, never text)
 extension/      Chrome MV3, intercepts paste and send
 dashboard/      Vite + React, live stream and the three-way comparison
 eval/           labelled dataset and metrics harness

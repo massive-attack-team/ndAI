@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import audit, config, pipeline, policy
+from . import audit, config, context, pipeline, policy
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("ndai")
@@ -41,6 +41,7 @@ class InspectRequest(BaseModel):
 @app.on_event("startup")
 def startup() -> None:
     audit.init()
+    context.init()
     state = pipeline.warm_up()
     log.info("ready: %s", state)
     if not state["semantic"]:
@@ -69,6 +70,11 @@ def events(limit: int = 100):
 @app.get("/stats")
 def stats():
     return audit.stats()
+
+
+@app.get("/graph")
+def graph():
+    return context.graph(teams=policy.get_engine().teams)
 
 
 @app.post("/policy/reload")
