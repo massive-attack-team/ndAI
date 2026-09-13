@@ -4,6 +4,16 @@ import type { Inspection } from "./types";
 
 export const hasRuntime = (): boolean => typeof chrome !== "undefined" && !!chrome.runtime?.id;
 
+/** True in a content script or a normal page; false in the background
+ * service worker, which has no DOM. The relay below only makes sense from
+ * a content script - a service worker calling chrome.runtime.sendMessage
+ * is addressing itself, which doesn't resolve the way a real content-script
+ * -> background call does. Session creation for document review runs
+ * inside the service worker (background.ts's "review:create" handler), so
+ * without this check, every document review silently failed to reach the
+ * detector and fell back to the plainer inline panel. */
+const inDom = (): boolean => typeof document !== "undefined";
+
 /** The preview page overrides the hostname so policy can be exercised from localhost. */
 export function destination(): string {
   return document.documentElement.dataset.ndaiDestination || location.hostname;
@@ -38,7 +48,7 @@ async function fetchInspect(text: string, dest: string): Promise<Inspection> {
 
 /** `dest` is passed explicitly from extension pages, whose own hostname is the extension id. */
 export function inspect(text: string, dest: string = destination()): Promise<Inspection> {
-  if (DETECTOR_MODE === "live" && hasRuntime()) {
+  if (DETECTOR_MODE === "live" && hasRuntime() && inDom()) {
     return new Promise((resolve, reject) => {
       chrome.runtime.sendMessage({ type: "inspect", text, destination: dest, href: location.href }, (res?: Inspection) => {
         if (chrome.runtime.lastError || !res) reject(new Error(chrome.runtime.lastError?.message ?? "no response"));
