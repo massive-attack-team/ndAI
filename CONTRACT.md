@@ -39,8 +39,9 @@ not: one code path, three corpora.
 
 **Not in scope today:** live web lookup to check research freshness. Static
 corpus only. This is a deliberate, documented limitation. See the
-"Research freshness is local-only for now" entry in `README.md`'s Limits
-section for the reasoning and the tradeoff if it's revisited later.
+"known-public snapshot, not a live web search" entry in `README.md`'s
+Limitations section for the reasoning and the tradeoff if it's revisited
+later.
 
 ---
 
