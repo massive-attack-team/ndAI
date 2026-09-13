@@ -30,7 +30,7 @@ async function fetchInspect(text: string, dest: string): Promise<Inspection> {
   } catch {
     return {
       action: "block", rule: "detector unavailable",
-      message: "NDAi's hosted detector is not reachable, so this text has not been checked.",
+      message: "ndAI's hosted detector is not reachable, so this text has not been checked.",
       findings: [], degraded: true,
     };
   }
