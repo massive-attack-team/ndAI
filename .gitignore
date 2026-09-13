@@ -6,3 +6,8 @@ dist/
 ndai.db
 eval/results.csv
 eval/sanitiser_results.json
+
+# Locally installed agent skills
+.agents/
+.claude/
+skills-lock.json
