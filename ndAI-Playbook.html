@@ -1,4 +1,4 @@
-<title>NDAi Playbook</title>
+<title>ndAI Playbook</title>
 <style>
   :root {
     --ink: #14171f;
@@ -402,7 +402,7 @@
 
 <div class="shell">
   <nav class="toc">
-    <div class="brand">NDAi</div>
+    <div class="brand">ndAI</div>
     <div class="brand-sub">Playbook</div>
 
     <div class="part-label">Part I — Product</div>
@@ -437,7 +437,7 @@
   <main>
     <div class="titleblock">
       <div class="eyebrow">Internal reference — hackathon submission</div>
-      <h1>NDAi Playbook</h1>
+      <h1>ndAI Playbook</h1>
       <p class="dek">The NDA your AI assistant actually reads. A local semantic firewall that judges what an employee is about to paste into an external AI tool using company-specific knowledge, not pattern matching — and either allows it, rewrites it to the minimum necessary context, or stops it.</p>
       <div class="meta-row">
         <span><strong>Team</strong> Peter · Hoang Phuc Le · chi-n-nguyen · cmaii2411</span>
@@ -451,7 +451,7 @@
     <section id="problem">
       <h2><span class="num">01</span>The problem</h2>
       <p class="wide">Employees paste customer data, source code, and financial plans into ChatGPT-style tools to get quick help. That data leaves the company's control — no audit trail, no way to delete it, no way to know it happened. By early 2026, one in five organizations had already had a security breach involving unmanaged AI use, and those incidents carry a materially higher financial impact than a typical breach.</p>
-      <p class="wide">This is partly solved already. Companies buy monitoring and governance tools that detect sensitive pastes and block them. But those tools are reactive — they catch the paste after someone decided to make it, and they're blunt enough that people learn to route around them. That's the gap NDAi is built for.</p>
+      <p class="wide">This is partly solved already. Companies buy monitoring and governance tools that detect sensitive pastes and block them. But those tools are reactive — they catch the paste after someone decided to make it, and they're blunt enough that people learn to route around them. That's the gap ndAI is built for.</p>
     </section>
 
     <section id="idea">
@@ -461,7 +461,7 @@
         <span class="label">The question</span>
         <p>Is this text derived from <em>our</em> confidential material — or is it just someone writing about a topic they're entitled to discuss?</p>
       </div>
-      <p class="wide">NDAi answers that with a local provenance index over the company's own documents, scored against a second index of public material in the same field. That second index is the part most teams skip. Without it, a detector trained on an oncology corpus flags every sentence a biologist writes about oncology — the false-positive rate makes the tool unusable, and people turn it off. Everything else in NDAi (the policy engine, the rewriter, the dashboard) is scaffolding around that one claim.</p>
+      <p class="wide">ndAI answers that with a local provenance index over the company's own documents, scored against a second index of public material in the same field. That second index is the part most teams skip. Without it, a detector trained on an oncology corpus flags every sentence a biologist writes about oncology — the false-positive rate makes the tool unusable, and people turn it off. Everything else in ndAI (the policy engine, the rewriter, the dashboard) is scaffolding around that one claim.</p>
     </section>
 
     <section id="architecture">
@@ -516,7 +516,7 @@
     <section id="stage-context">
       <h2><span class="num">05</span>Context stage — the piece-at-a-time catch</h2>
       <p class="wide">Detection judges one prompt at a time. A document leaked a sentence per message never trips it — each piece alone is too small, or too reworded, to clear the margin on its own. The context stage closes that gap. It remembers which chunks of which internal documents have already reached each destination class, per person and per declared team, over a rolling window. When the current prompt completes enough of one document — distinct chunks, from distinct prompts, covering a real share of the document — it adds a <code>cumulative</code> finding before the policy engine ever sees it.</p>
-      <p class="wide">It works across people, not just across a single person's messages: if one teammate sends the first third of a memo and a different teammate — on the same declared team — sends the next third to the same kind of destination, NDAi still recognizes it as one document going out, not two unrelated messages. Deliberately left out: inferring anyone's role or team from what they type (declared in policy, never learned — a person being judged could train it), and escalating weak findings this way (they carry no document, so there's nothing to add up). Nothing but a reference to the corpus is stored — no prompt text.</p>
+      <p class="wide">It works across people, not just across a single person's messages: if one teammate sends the first third of a memo and a different teammate — on the same declared team — sends the next third to the same kind of destination, ndAI still recognizes it as one document going out, not two unrelated messages. Deliberately left out: inferring anyone's role or team from what they type (declared in policy, never learned — a person being judged could train it), and escalating weak findings this way (they carry no document, so there's nothing to add up). Nothing but a reference to the corpus is stored — no prompt text.</p>
     </section>
 
     <section id="stage-policy">
@@ -539,8 +539,8 @@
 
     <section id="stage-sanitise">
       <h2><span class="num">07</span>Sanitiser</h2>
-      <p class="wide">When policy says <code>sanitize</code>, NDAi doesn't send a whole-prompt rewrite and hope. Each flagged span gets its own edit — redact, generalise, or remove — chosen from a declarative strategy table keyed on tier and confidence. The candidate rewrite is then fed back through the same detector that flagged it: if it still matches, the strategy escalates (generalise → redact → remove) for up to two passes, and fails closed to a full block if it's still leaking after that. This is exactly as good as the detector is, no better — and it's honest about that limit rather than pretending otherwise.</p>
-      <p class="wide">One case gets no rewrite at all: when the confidential content <em>is</em> the thing being reasoned about — "verify this proof," "why does this fail" — no edit preserves the task, so NDAi blocks outright and points to the internal model instead of handing back a mangled, unanswerable question.</p>
+      <p class="wide">When policy says <code>sanitize</code>, ndAI doesn't send a whole-prompt rewrite and hope. Each flagged span gets its own edit — redact, generalise, or remove — chosen from a declarative strategy table keyed on tier and confidence. The candidate rewrite is then fed back through the same detector that flagged it: if it still matches, the strategy escalates (generalise → redact → remove) for up to two passes, and fails closed to a full block if it's still leaking after that. This is exactly as good as the detector is, no better — and it's honest about that limit rather than pretending otherwise.</p>
+      <p class="wide">One case gets no rewrite at all: when the confidential content <em>is</em> the thing being reasoned about — "verify this proof," "why does this fail" — no edit preserves the task, so ndAI blocks outright and points to the internal model instead of handing back a mangled, unanswerable question.</p>
       <div class="callout">
         <span class="label">Stated out loud</span>
         <p>Placeholders are not protection. <code>[COMPANY] will acquire [TARGET] for [AMOUNT]</code> still discloses that a secret deal exists. The rewrite changes what's being asked, not just the nouns.</p>
@@ -589,7 +589,7 @@
       <p class="wide">Stated deliberately, before a judge states them first:</p>
       <ul>
         <li><strong>Rewriting can't save a reasoning task.</strong> If the confidential content is the problem to solve, not context for it, no rewrite preserves the task — the honest answer is the internal model.</li>
-        <li><strong>This doesn't stop a frontier lab from competing with its customers.</strong> That's a contract and jurisdiction problem. NDAi stops accidental disclosure — the pasted <code>.env</code>, the draft board memo — not deliberate misuse by the vendor itself.</li>
+        <li><strong>This doesn't stop a frontier lab from competing with its customers.</strong> That's a contract and jurisdiction problem. ndAI stops accidental disclosure — the pasted <code>.env</code>, the draft board memo — not deliberate misuse by the vendor itself.</li>
         <li><strong>Scoped to three document types for now.</strong> Source code, legal, and architecture material are explicitly out of scope for this build, not silently broken — a deliberate scope cut, on the record.</li>
         <li><strong>Research freshness is local-only.</strong> The public corpus is built in advance, not fetched live — a paper published after the last refresh reads as a false positive. Live lookup would fix that but means the detector calls out before a decision is made, which is its own leak surface.</li>
         <li><strong>Numbers aren't stable yet.</strong> 56 samples is a seed set, not a benchmark.</li>
@@ -794,7 +794,7 @@
     </section>
 
     <footer>
-      NDAi — a local semantic firewall for AI prompts. Prepared for hackathon submission. This document is a living reference; update it as the product changes.
+      ndAI — a local semantic firewall for AI prompts. Prepared for hackathon submission. This document is a living reference; update it as the product changes.
     </footer>
   </main>
 </div>
