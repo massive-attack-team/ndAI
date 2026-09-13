@@ -1,29 +1,66 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8" />
+<title>NDAi</title>
 <style>
-  body { width: 280px; margin: 0; padding: 16px; background: #f2f3f0; color: #1b2021;
-         font: 13px/1.5 ui-sans-serif, system-ui, sans-serif; }
-  h1 { font-size: 15px; margin: 0 0 2px; }
-  .status { font-size: 12px; color: #6b716d; margin-bottom: 14px; }
-  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
-  .up { background: #3f6b4e; } .down { background: #8e2f3a; } .warn { background: #b5761f; }
-  label { display: block; margin-bottom: 10px; }
-  input, select { width: 100%; font: inherit; padding: 5px 7px; margin-top: 3px;
-                  border: 1px solid #c9cdc7; border-radius: 2px; background: #fbfbf9; }
-  .row { display: flex; align-items: center; gap: 7px; margin-bottom: 12px; }
-  .row input { width: auto; margin: 0; }
-  .note { font-size: 11.5px; color: #6b716d; border-top: 1px solid #dcdfd9; padding-top: 10px; }
+  :root {
+    --bg: #fbfbf9; --ink: #1b2021; --muted: #5f6661; --line: #dcdfd9; --accent: #2a4b7c;
+    --green: #3f7a52; --yellow: #b5761f; --red: #b03443;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1d2122; --ink: #e8ebe6; --muted: #a3aaa5; --line: #363c3d; --accent: #7ea3d9;
+            --green: #6fbf8a; --yellow: #e5a948; --red: #ec6f7c; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { width: 300px; margin: 0; padding: 18px; background: var(--bg); color: var(--ink);
+         font: 13px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .logo { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+          background: var(--accent); color: var(--bg); font-weight: 700; }
+  h1 { font-size: 15px; margin: 0; }
+  .tag { margin: 0; color: var(--muted); font-size: 12px; }
+  p { margin: 0 0 14px; }
+  button { width: 100%; font: 600 13.5px/1 inherit; font-family: inherit; padding: 11px 14px;
+           border-radius: 8px; cursor: pointer; border: 1px solid var(--accent); }
+  .primary { background: var(--accent); color: var(--bg); }
+  .quiet { background: transparent; color: var(--muted); border-color: var(--line); font-weight: 500; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .status { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .legend { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+  .legend li { display: flex; align-items: center; gap: 8px; }
+  .legend i { width: 18px; height: 4px; border-radius: 2px; }
+  footer { margin-top: 12px; color: var(--muted); font-size: 11px; }
 </style>
-<h1>NDAi</h1>
-<div class="status" id="status"><span class="dot warn"></span>Checking local service</div>
-<label>Signed in as<input id="user" placeholder="you@company.com" /></label>
-<label>Role<select id="role">
-  <option value="researcher">Researcher</option>
-  <option value="engineer">Engineer</option>
-  <option value="contractor">Contractor</option>
-  <option value="default">Other</option>
-</select></label>
-<div class="row"><input type="checkbox" id="enabled" /><span>Check what I send</span></div>
-<div class="row"><input type="checkbox" id="failClosed" /><span>Block if the service is down</span></div>
-<div class="note" id="note"></div>
-<script src="popup.js"></script>
+</head>
+<body>
+  <div class="brand">
+    <div class="logo" aria-hidden="true">N</div>
+    <div>
+      <h1>NDAi</h1>
+      <p class="tag">Checks prompts and files before they reach an AI tool.</p>
+    </div>
+  </div>
+
+  <section id="off" hidden>
+    <p>Flags confidential text and credentials as you type in ChatGPT, Claude and Gemini.</p>
+    <button id="activate" class="primary">Activate NDAi</button>
+  </section>
+
+  <section id="on" hidden>
+    <p class="status"><span class="dot"></span>NDAi is active</p>
+    <ul class="legend">
+      <li><i style="background: var(--green)"></i>Green — fine to send</li>
+      <li><i style="background: var(--yellow)"></i>Yellow — sanitize first</li>
+      <li><i style="background: var(--red)"></i>Red — blocked</li>
+    </ul>
+    <button id="pause" class="quiet">Pause NDAi</button>
+  </section>
+
+  <footer>Mock detector · nothing leaves the browser</footer>
+  <script src="dist/popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "ndai-extension",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "preview": "node build.mjs --serve",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.2.9",
+    "esbuild": "^0.28.2",
+    "typescript": "~5.9"
+  }
+}
