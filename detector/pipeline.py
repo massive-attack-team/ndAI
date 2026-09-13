@@ -16,6 +16,7 @@ from typing import Any
 
 from . import audit, categories, context, detection, policy, provenance, rewrite, secrets_scan
 from .embeddings import get_embedder
+from sanitiser.service import sanitise as run_sanitiser
 
 
 @dataclass
@@ -31,6 +32,7 @@ class Inspection:
     rewritten: str | None = None
     rewrite_note: str = ""
     baselines: dict[str, str] = field(default_factory=dict)
+    sanitiser: dict[str, Any] = field(default_factory=dict)
     context: list[dict[str, Any]] = field(default_factory=list)
     event_id: int | None = None
 
@@ -112,11 +114,32 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
         decision = policy.Decision(decision.action, decision.rule, f"{decision.message} {context_note}")
 
     rewritten, note = None, ""
+    sanitiser_meta: dict[str, Any] = {}
     if decision.action == "sanitize":
-        rw = rewrite.rewrite(text)
-        rewritten, note = rw.text, rw.reason
-        if not rw.available:
-            decision = policy.Decision("block", decision.rule, note or decision.message)
+        # Feature 2 (sanitiser/): per-span edits, verified by re-running
+        # detect() on the candidate and escalating strategy up to 2 passes,
+        # failing closed to block if it still leaks. Pass the DetectionResult
+        # we already computed above (`result`, post context-stage escalation
+        # merge) so the prompt isn't re-embedded twice.
+        san = run_sanitiser(text, result)
+        sanitiser_meta = {
+            "passes": san.passes,
+            "residual_findings": san.residual_findings,
+            "leak_reduction": san.leak_reduction,
+            "intent_retention": san.intent_retention,
+            "edits": [
+                {
+                    "span": [e.span.start, e.span.end], "strategy": e.strategy,
+                    "reason": e.reason, "tier": e.tier, "confidence": e.confidence,
+                    "matched_source": e.matched_source,
+                }
+                for e in san.edits
+            ],
+        }
+        if san.action == "block":
+            decision = policy.Decision("block", decision.rule, san.reason or decision.message)
+        else:
+            rewritten, note = san.sanitised_text, san.reason
 
     withheld = len(text) if decision.action == "block" else (
         max(0, len(text) - len(rewritten or "")) if decision.action == "sanitize" else 0
@@ -128,7 +151,7 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
         sensitivity=sensitivity, risk=_risk(sensitivity, dest_class),
         latency_ms=round(latency, 1), destination_class=dest_class,
         findings=findings, rewritten=rewritten, rewrite_note=note,
-        baselines=_baselines(text, findings),
+        baselines=_baselines(text, findings), sanitiser=sanitiser_meta,
         context=[{**e.__dict__, "coverage": round(e.coverage, 2)} for e in signal.exposures],
     )
 
@@ -140,6 +163,10 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
             "latency_ms": inspection.latency_ms, "chars_total": len(text),
             "chars_withheld": withheld, "text_sha256": audit.sha256(text),
             "preview": audit.redact(text, secret_spans), "findings": findings,
+            "passes": sanitiser_meta.get("passes"),
+            "residual_findings": sanitiser_meta.get("residual_findings"),
+            "leak_reduction": sanitiser_meta.get("leak_reduction"),
+            "intent_retention": sanitiser_meta.get("intent_retention"),
         })
         context.record(
             event_id=inspection.event_id, user=user, team=team, destination=destination,
