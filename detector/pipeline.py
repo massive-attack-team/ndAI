@@ -1,12 +1,21 @@
-"""Orchestration: secrets -> provenance -> category -> policy -> rewrite."""
+"""Orchestration: secrets -> detection -> policy -> rewrite.
+
+Detection (type + sensitivity + confidence per CONTRACT.md) and policy
+(what happens given that judgment) were built and tuned independently -
+detector/detection.py and detector/policy.py respectively. This module is
+the integration point where both sides get wired together with the secrets
+scan, which stays a separate stage since it's pattern/entropy-based, not
+part of the type+sensitivity judgment.
+"""
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import audit, categories, policy, provenance, rewrite, secrets_scan
+from . import audit, categories, detection, policy, provenance, rewrite, secrets_scan
 from .embeddings import get_embedder
+from .policy import DECISIONS
 
 
 @dataclass
@@ -42,11 +51,11 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
     dest_class = engine.classify_destination(destination)
 
     findings: list[dict[str, Any]] = []
-    sensitivity = 0
     critical = False
     secret_spans: list[tuple[int, int]] = []
 
-    # Stage 1 - credentials and PII
+    # Stage 1 - credentials and PII. Separate from the type+sensitivity
+    # judgment below (CONTRACT.md #1): pattern/entropy based, not corpus based.
     for f in secrets_scan.scan(text):
         secret_spans.append(f.span)
         critical = critical or f.critical
@@ -54,35 +63,41 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
             "kind": "secret", "label": f.label, "preview": f.preview,
             "critical": f.critical, "span": list(f.span),
         })
-        sensitivity = max(sensitivity, 3 if f.critical else 2)
 
-    # Stage 2 - company-specific provenance
-    hit = provenance.get_detector().check(text)
-    if hit:
+    # Stage 2 - detection: what kind of sensitive thing is this, and how
+    # sensitive (detector/detection.py, CONTRACT.md #2).
+    detection_result = detection.detect(text)
+    for f in detection_result.findings:
         findings.append({
-            "kind": "provenance", "label": hit.doc, "score": round(hit.score, 3),
-            "public_score": round(hit.public_score, 3), "margin": round(hit.margin, 3),
-            "verbatim": hit.verbatim, "excerpt": hit.excerpt,
+            "kind": "detection", "type": f.type, "sensitivity": f.sensitivity,
+            "confidence": f.confidence, "span": list(f.span),
+            "matched_source": f.evidence.matched_source, "score": f.evidence.score,
+            "public_baseline_score": f.evidence.public_baseline_score,
+            "margin": f.evidence.margin, "excerpt": f.evidence.excerpt,
         })
-        sensitivity = max(sensitivity, 3 if hit.verbatim else 2)
 
-    # Stage 3 - category, weaker evidence on its own
-    cat = categories.get_classifier().classify(text)
-    if cat:
-        base = categories.SENSITIVITY.get(cat.label, 2)
-        findings.append({"kind": "category", "label": cat.label, "score": round(cat.score, 3)})
-        sensitivity = max(sensitivity, base if hit else max(1, base - 1))
+    secret_sensitivity = 3 if critical else (2 if secret_spans else 0)
+    sensitivity = max(secret_sensitivity, detection_result.overall_sensitivity)
 
-    decision = engine.evaluate(
-        sensitivity=sensitivity, destination_class=dest_class,
+    # Stage 3 - policy: what happens to it, given who's sending and where
+    # it's going (detector/policy.py, CONTRACT.md #5). Secrets and typed
+    # findings are evaluated separately, then the more severe wins - a live
+    # credential should block even if nothing else in the prompt does.
+    secrets_decision = engine.evaluate(
+        sensitivity=secret_sensitivity, destination_class=dest_class,
         role=role, has_critical_secret=critical,
+    )
+    detection_decision = engine.evaluate_detection(detection_result, destination_class=dest_class, role=role)
+    decision = max(
+        (secrets_decision, detection_decision),
+        key=lambda d: DECISIONS.index(d.action),
     )
 
     rewritten, note = None, ""
     if decision.action == "sanitize":
-        result = rewrite.rewrite(text)
-        rewritten, note = result.text, result.reason
-        if not result.available:
+        rewrite_result = rewrite.rewrite(text)
+        rewritten, note = rewrite_result.text, rewrite_result.reason
+        if not rewrite_result.available:
             decision = policy.Decision("block", decision.rule, note or decision.message)
 
     withheld = len(text) if decision.action == "block" else (
@@ -90,38 +105,50 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
     )
     latency = (time.perf_counter() - started) * 1000
 
-    result = Inspection(
+    inspection = Inspection(
         action=decision.action, rule=decision.rule, message=decision.message,
         sensitivity=sensitivity, risk=_risk(sensitivity, dest_class),
         latency_ms=round(latency, 1), destination_class=dest_class,
         findings=findings, rewritten=rewritten, rewrite_note=note,
-        baselines=_baselines(findings),
+        baselines=_baselines(text, findings),
     )
 
     if log_event:
-        result.event_id = audit.record({
+        inspection.event_id = audit.record({
             "user": user, "role": role, "destination": destination,
             "destination_class": dest_class, "action": decision.action,
-            "rule": decision.rule, "sensitivity": sensitivity, "risk": result.risk,
-            "latency_ms": result.latency_ms, "chars_total": len(text),
+            "rule": decision.rule, "sensitivity": sensitivity, "risk": inspection.risk,
+            "latency_ms": inspection.latency_ms, "chars_total": len(text),
             "chars_withheld": withheld, "text_sha256": audit.sha256(text),
             "preview": audit.redact(text, secret_spans), "findings": findings,
         })
-    return result
+    return inspection
 
 
-def _baselines(findings: list[dict[str, Any]]) -> dict[str, str]:
-    """What a regex DLP and a generic classifier would have said. This is the demo."""
+def _baselines(text: str, findings: list[dict[str, Any]]) -> dict[str, str]:
+    """What a regex DLP and a generic classifier would have said. This is the demo.
+
+    generic_semantic re-runs the category classifier on the whole prompt,
+    independent of whether a stronger provenance match already explains a
+    given sentence - it needs to answer "what would topic-only classification
+    alone have said," which is a different question from what detect()
+    reports (detect() skips category checks on sentences a provenance hit
+    already covers, since provenance is strictly stronger evidence there).
+    """
     has_secret = any(f["kind"] == "secret" for f in findings)
-    cat = next((f for f in findings if f["kind"] == "category"), None)
-    prov = next((f for f in findings if f["kind"] == "provenance"), None)
+    cat = categories.get_classifier().classify(text)
+    strongest = max(
+        (f for f in findings if f["kind"] == "detection" and f["confidence"] != "weak"),
+        key=lambda f: (f["sensitivity"], f["score"] or 0),
+        default=None,
+    )
     return {
         "regex_dlp": "Credential or PII found" if has_secret else "No match",
         "generic_semantic": (
-            f"Looks like {cat['label'].replace('_', ' ')}" if cat else "No match"
+            f"Looks like {cat.label.replace('_', ' ')}" if cat else "No match"
         ),
         "ndai": (
-            f"{prov['score']:.0%} match to {prov['label']}" if prov else
+            f"{strongest['score']:.0%} match to {strongest['matched_source']}" if strongest else
             ("Credential found" if has_secret else "No internal provenance")
         ),
     }
