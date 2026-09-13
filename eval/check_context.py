@@ -88,18 +88,14 @@ DANA, ALEX, PRIYA, SAM = "dana@kestrelbio.com", "alex@kestrelbio.com", "priya@ke
 
 def fixture_cases():
     def pieces_from_one_person(s):
-        # CONTRACT.md #9 review (14 Sep): cumulative tier 2+ to a consumer
-        # destination tries sanitize before falling back to block - pipeline.py
-        # already downgrades sanitize -> block when the rewrite is refused or
-        # unavailable, so this is "try to sanitize, block if that doesn't hold
-        # up" rather than a hardcoded block. This fixture checks the policy
-        # decision directly (no rewrite step here), so it expects sanitize.
+        # Tier 3 pieced together still blocks: "restricted to unknown
+        # destination" sits above "pieced together across prompts".
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
-        return _expect(*s.send(DANA, "public_consumer", [_match(MEMO, 4)]), scope="user", want_action="sanitize")
+        return _expect(*s.send(DANA, "public_consumer", [_match(MEMO, 4)]), scope="user", want_action="block")
 
     def pieces_across_a_team(s):
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
-        return _expect(*s.send(ALEX, "public_consumer", [_match(MEMO, 1)]), scope="team", want_action="sanitize")
+        return _expect(*s.send(ALEX, "public_consumer", [_match(MEMO, 1)]), scope="team", want_action="block")
 
     def other_teams_do_not_add_up(s):
         s.send(DANA, "public_consumer", [_match(MEMO, 0)])
@@ -141,6 +137,11 @@ def fixture_cases():
         s.send(DANA, "enterprise_vetted", [_match(MEMO, 0)], action="warn")
         return _expect(*s.send(DANA, "enterprise_vetted", [_match(MEMO, 4)]), scope="user", want_action="sanitize")
 
+    def tier_two_doc_pieced_together_is_sanitized(s):
+        # CONTRACT.md #9 review: tier 2 tries sanitize before block.
+        s.send(SAM, "public_consumer", [_match(REORG, 0)])
+        return _expect(*s.send(SAM, "public_consumer", [_match(REORG, 1)]), scope="user", want_action="sanitize")
+
     def tier_one_doc_adds_up_but_is_allowed(s):
         s.send(DANA, "public_consumer", [_match(BUDGET, 0)])
         return _expect(*s.send(DANA, "public_consumer", [_match(BUDGET, 1)]), scope="user", want_action="allow")
@@ -166,7 +167,8 @@ def fixture_cases():
     return [pieces_from_one_person, pieces_across_a_team, other_teams_do_not_add_up,
             blocked_sends_never_left, internal_model_never_counts, destination_classes_are_separate,
             resending_the_same_section, request_noise_on_one_chunk, two_sections_in_one_prompt,
-            old_sends_expire, vetted_vendor_gets_rewrite_not_block, tier_one_doc_adds_up_but_is_allowed,
+            old_sends_expire, vetted_vendor_gets_rewrite_not_block,
+            tier_two_doc_pieced_together_is_sanitized, tier_one_doc_adds_up_but_is_allowed,
             graph_shows_what_left]
 
 

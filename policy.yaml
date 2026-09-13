@@ -46,14 +46,6 @@ rules:
     then: block
     message: A live credential was found in this text. Rotate it if it has already been sent anywhere.
 
-  # Confidence "cumulative" comes from the context stage: no single prompt was
-  # enough, but together with what this person or their team already sent to
-  # the same kind of destination, enough of one internal document is out.
-  - name: pieced together across prompts
-    when: {confidence: [cumulative], min_sensitivity: 2, destinations: [public_consumer, unknown]}
-    then: sanitize
-    message: Earlier prompts already sent parts of this internal document to consumer AI, and this one adds more. Sending a minimum-context version instead - if that isn't possible, this gets blocked instead.
-
   - name: weak signal, unconfirmed
     when: {confidence: [weak], min_sensitivity: 2}
     then: warn
@@ -63,6 +55,17 @@ rules:
     when: {min_sensitivity: 3, destinations: [unknown, public_consumer]}
     then: block
     message: Restricted material cannot go to a consumer AI product. Use the internal model, or ask for an exception.
+
+  # Confidence "cumulative" comes from the context stage: no single prompt was
+  # enough, but together with what this person or their team already sent to
+  # the same kind of destination, enough of one internal document is out.
+  # Sanitize first (CONTRACT.md #9 review). Sits BELOW the restricted rule on
+  # purpose: rules are first match, so above it tier 3 would be sanitized too.
+  # Tier 3 pieced together blocks; tier 2 gets a verified rewrite attempt.
+  - name: pieced together across prompts
+    when: {confidence: [cumulative], min_sensitivity: 2, destinations: [public_consumer, unknown]}
+    then: sanitize
+    message: Earlier prompts already sent parts of this internal document to consumer AI, and this one adds more. Sending a minimum-context version instead - if that isn't possible, this gets blocked instead.
 
   - name: restricted to vetted vendor
     when: {min_sensitivity: 3, destinations: [enterprise_vetted]}
