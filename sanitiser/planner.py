@@ -26,6 +26,20 @@ POLICY: dict[tuple[int, Confidence], str] = {
     (1, "verbatim"):   "generalise",   # internal - mildest tier that reaches here
     (1, "paraphrase"): "generalise",
     (1, "weak"):       "generalise",
+    # cumulative: the context stage (CONTRACT.md #9) only fires this once
+    # real chunks from a real document have actually added up across
+    # several prompts - confirmed evidence, not a guess, so it's treated at
+    # least as seriously as verbatim. Not hard "block" like (3, verbatim)
+    # though: policy.yaml's "pieced together across prompts" rule already
+    # routes tier 2 AND tier 3 cumulative findings to sanitize first (see
+    # CONTRACT.md #9's review note) - this table shouldn't second-guess that
+    # by blocking outright. If redact still leaks, escalation (below) and
+    # verify.py's re-detection loop fail it closed to block regardless.
+    (3, "cumulative"): "redact",
+    (2, "cumulative"): "redact",
+    (1, "cumulative"): "generalise",   # never actually reaches here - policy
+                                        # allows tier 1 outright - kept for
+                                        # table completeness.
 }
 
 # Applied when a pass fails verification: try something blunter.
