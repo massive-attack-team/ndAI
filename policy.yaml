@@ -38,6 +38,11 @@ rules:
     then: block
     message: A live credential was found in this text. Rotate it if it has already been sent anywhere.
 
+  - name: weak signal, unconfirmed
+    when: {confidence: [weak], min_sensitivity: 2}
+    then: warn
+    message: Reads like it could be sensitive material, but there's no confirmed match to internal documents. Logged for review rather than blocked on a guess.
+
   - name: restricted to unknown destination
     when: {min_sensitivity: 3, destinations: [unknown, public_consumer]}
     then: block

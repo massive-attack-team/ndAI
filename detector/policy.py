@@ -52,7 +52,8 @@ class PolicyEngine:
         return self.roles.get(role, self.roles.get("default", {"clearance": 2}))["clearance"]
 
     def evaluate(self, *, sensitivity: int, destination_class: str, role: str,
-                 has_critical_secret: bool) -> Decision:
+                 has_critical_secret: bool, finding_type: str | None = None,
+                 confidence: str | None = None) -> Decision:
         for rule in self.rules:
             when = rule.get("when") or {}
             if when.get("has_critical_secret") and not has_critical_secret:
@@ -63,8 +64,37 @@ class PolicyEngine:
                 continue
             if "roles" in when and role not in when["roles"]:
                 continue
+            if "types" in when and finding_type not in when["types"]:
+                continue
+            if "confidence" in when and confidence not in when["confidence"]:
+                continue
             return Decision(rule["then"], rule.get("name", "unnamed"), rule.get("message", ""))
         return Decision("allow", "fallthrough", "")
+
+    def evaluate_detection(self, result, *, destination_class: str, role: str) -> Decision:
+        """Decide off a full DetectionResult (see CONTRACT.md #2), not just a
+        single sensitivity number - each finding gets evaluated independently
+        and the most severe wins, since a prompt can carry more than one
+        distinct exposure (CONTRACT.md #2, "a prompt can carry multiple
+        findings").
+        """
+        if not result.findings:
+            return Decision("allow", "fallthrough", "Nothing sensitive detected.")
+
+        worst: Decision | None = None
+        worst_finding = None
+        for f in result.findings:
+            d = self.evaluate(
+                sensitivity=f.sensitivity, destination_class=destination_class,
+                role=role, has_critical_secret=False,
+                finding_type=f.type, confidence=f.confidence,
+            )
+            if worst is None or DECISIONS.index(d.action) > DECISIONS.index(worst.action):
+                worst, worst_finding = d, f
+
+        detail = f"{worst_finding.type.replace('_', ' ')}, tier {worst_finding.sensitivity}, {worst_finding.confidence} match"
+        message = f"{worst.message} ({detail})" if worst.message else detail
+        return Decision(worst.action, worst.rule, message)
 
 
 _engine: PolicyEngine | None = None
