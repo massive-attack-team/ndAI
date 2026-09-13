@@ -1,26 +1,128 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens. See DESIGN_SYSTEM.md for the rules behind them.
+ * Dark substrate only: this is an operator console, it does not theme-switch.
+ */
 @theme {
-  --color-paper: #f2f3f0;
-  --color-card: #fbfbf9;
-  --color-ink: #1b2021;
-  --color-muted: #6b716d;
-  --color-rule: #dcdfd9;
-  --color-seal: #2a4b7c;
-  --color-allow: #3f6b4e;
-  --color-warn: #b5761f;
-  --color-block: #8e2f3a;
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  /* Substrate */
+  --color-void: #06070a;
+  --color-panel: #0a0c10;
+  --color-raised: #10131a;
+
+  /* Strokes */
+  --color-line: #1e293b;
+  --color-line-strong: #334155;
+  --color-frame: #d6dce5;
+
+  /* Text */
+  --color-fg: #e6ebf2;
+  --color-muted: #8b95a5;
+  --color-dim: #5b6576;
+
+  /* Signal */
+  --color-cyan: #00f0ff;
+  --color-emerald: #00ff9c;
+  --color-rose: #ff0055;
+  --color-amber: #ffb800;
+
+  --font-sans: "Archivo Variable", "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --text-micro: 0.625rem;
+  --text-micro--line-height: 1rem;
+  --text-data: 0.75rem;
+  --text-data--line-height: 1.25rem;
+
+  --tracking-hud: 0.08em;
+
+  --shadow-glow-cyan: 0 0 15px rgba(0, 240, 255, 0.15);
+  --shadow-glow-emerald: 0 0 15px rgba(0, 255, 156, 0.14);
+  --shadow-glow-amber: 0 0 15px rgba(255, 184, 0, 0.16);
+  --shadow-glow-rose: 0 0 15px rgba(255, 0, 85, 0.24);
+
+  --animate-ingest: ingest 1.4s ease-out 1;
+  --animate-blink: blink 1.2s steps(1, end) infinite;
+
+  @keyframes ingest {
+    from {
+      background-color: rgb(0 240 255 / 0.16);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
 }
 
-body {
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+@utility hazard {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--hazard, var(--color-frame)) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+@utility skeleton {
+  background-image: repeating-linear-gradient(90deg, var(--color-raised) 0 38%, transparent 38% 42%);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--color-void);
+    color: var(--color-fg);
+    font-family: var(--font-mono);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: rgb(0 240 255 / 0.3);
+    color: var(--color-fg);
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--color-cyan);
+    outline-offset: 1px;
+  }
+
+  /* CRT scanlines. Visual only. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent 0 2px, rgb(0 0 0 / 0.16) 2px 3px);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }

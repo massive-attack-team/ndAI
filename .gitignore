@@ -5,3 +5,8 @@ node_modules/
 dist/
 ndai.db
 eval/results.csv
+
+# Locally installed agent skills
+.agents/
+.claude/
+skills-lock.json
