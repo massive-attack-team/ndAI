@@ -97,6 +97,16 @@ before a judge says it for you.
 patching. Deeper hooks catch more and break the host page every time it ships a
 change, and a tool that breaks ChatGPT gets uninstalled the same week.
 
+**Research freshness is local-only for now.** The public corpus is built in
+advance, not fetched live, so a paper published after the corpus was last
+refreshed won't be recognized as already-public — a false positive on
+genuinely public research. Live web lookup at inspection time would fix that,
+but it means the detector calls out to the internet before a decision is made:
+the opposite of "nothing leaves this machine until you approve it," and a new
+leak surface in its own right (the query itself discloses what you're asking
+about). Worth revisiting once the static-corpus approach is proven; not in
+scope for v1.
+
 ---
 
 ## Evaluation
