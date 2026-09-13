@@ -4,12 +4,13 @@ Two people, two features, built in parallel today. This file is the interface
 between them — read it before writing code so neither person blocks on the
 other's progress.
 
-- **Person 1 — Detection.** Given raw text, decide what kind of sensitive
-  thing it is and how sensitive. Owns `detector/provenance.py`,
-  `detector/categories.py`, `corpus/`, and the corpus-building work.
-- **Person 2 — Response.** Given a detection judgment plus who's sending and
-  where it's going, decide what happens to the prompt. Owns `detector/policy.py`,
-  `policy.yaml`, `detector/rewrite.py`.
+- **Person 1 — Detection (Hoang Phuc).** Given raw text, decide what kind of
+  sensitive thing it is and how sensitive. Owns `detector/detection.py`,
+  `detector/provenance.py`, `detector/categories.py`, `corpus/`, and the
+  corpus-building work.
+- **Person 2 — Response (Peter).** Given a detection judgment plus who's sending
+  and where it's going, decide what happens to the prompt. Owns
+  `detector/policy.py`, `policy.yaml`, `detector/rewrite.py`.
 
 Detection doesn't need to know how response uses its output. Response doesn't
 need to know how detection arrived at its judgment. The only thing that has to
@@ -172,8 +173,200 @@ action."
 
 Detection (Person 1's side) has a first pass built already — typed corpus,
 frontmatter-driven type/tier, `detector/detection.py`'s `detect()` producing
-real `DetectionResult` values off the hashing fallback (not yet verified
-against the real `sentence-transformers` backend). Whoever picks up Person 1's
+real `DetectionResult` values. Whoever picks up Person 1's
 role can pick up from there rather than starting cold; nothing here blocks
 Person 2 from starting the fixture-based response work described in §6 right
 now.
+
+Checked on 13 Sep against the real `sentence-transformers` backend
+(bge-small-en-v1.5):
+
+- **Response:** `python -m eval.response_fixtures` passes 10/10.
+- **Detection:** `python -m eval.check_contract` runs the 15 acceptance
+  scenarios in `eval/contract_scenarios.json` (11 across the three types and
+  tiers, 4 public questions that must come back clean); `detect()` passes 8.
+  The tumour and acquisition paraphrases and a word-for-word copy of the
+  KB-2291 result fall under `PUBLIC_MARGIN` (margins 0.052, 0.094 and 0.075),
+  the market-entry prompt gets no `weak` finding (0.603 against 0.71), and
+  request sentences trip false findings (§8).
+- **End to end** (`detect()`, then `evaluate_detection()`): three restricted
+  leaks in the scenarios are allowed to chatgpt.com and Gemini, and harmless
+  prompts that trip false findings are sanitized.
+
+---
+
+## 8. Proposed changes (not yet agreed)
+
+From the 13 Sep checks in §7. Nothing here is in force until both people agree.
+
+- **Request sentences must not match.** Generic asks match the process docs by
+  wide margins. "Draft an internal note for the leadership team about the new
+  office opening hours." comes back as `strategic_plan` tier 2 against
+  `commercial-reorg.md` with margin 0.141, wider than most real leaks. 3 of 6
+  harmless workplace prompts tested were flagged this way, and
+  `evaluate_detection()` turns each into `sanitize` on chatgpt.com. Detection
+  owns the fix.
+- **Credentials need their own path into response.** §1 keeps them out of
+  `DetectionResult`, and `evaluate_detection()` passes
+  `has_critical_secret=False`, so a pasted database password produces no
+  findings and is allowed. Proposal: the pipeline runs `secrets_scan.scan()`
+  and applies the credential rule before `evaluate_detection()`.
+- **`verbatim` means 8 or more consecutive words shared with
+  `matched_source`**, ignoring case and punctuation, instead of a cosine
+  cut-off. A single sentence is compared with a 60-word chunk, so copies can
+  score under 0.78: the FY27 roadmap's Q4 line, copied word for word, scores
+  0.772 and is labelled `paraphrase`, while a partly reworded reorg sentence
+  scores 0.785 and is labelled `verbatim`. §4 lets `verbatim` justify a block,
+  so the label has to be right.
+- **`overall_sensitivity` should leave out `weak` findings, or go.**
+  `evaluate_detection()` already decides per finding, so only other readers
+  (dashboard, audit, risk score) use the field, and today a topic-only research
+  or financial finding sets it to 3.
+- **Define `excerpt`.** §2 says "short redacted preview, not raw text", but
+  `detect()` returns the matched internal passage unredacted, and the prompt
+  sentence itself for `weak` findings. Proposal: the matched internal passage
+  for `verbatim` and `paraphrase`, empty for `weak`, and never sent to the
+  browser or stored in the audit log.
+- **Add `semantic: bool` to `DetectionResult`.** On the hashing fallback,
+  paraphrase detection is off, and an empty result looks the same as a clean
+  one.
+- **Architecture and code docs are out of scope.** `detect()` drops matches to
+  `architecture-kestrel.md` and `ingest_service.py` because they have no type,
+  so the architecture prompts in `demo_seed.py` return no findings. Either give
+  those docs a type or move the demo to the three types.
+- **A rewrite goes back through `detect()` before it's offered.** Otherwise the
+  "safe version" is never checked.
+- **Detection is done when the eval says so.** Add to §5: `check_contract`
+  passes, and `eval/run_eval.py` reports recall, false positives and source
+  attribution per type on a held-out split, re-run whenever the corpus or
+  thresholds change. The corpus reorganisation moved eval recall from 0.83 to
+  0.65 without anyone noticing.
+
+---
+
+## 9. Context stage (proposed, built, not yet agreed)
+
+Detection judges one prompt at a time, so a document that goes out a piece per
+prompt never trips it. `detector/context.py` sits between detection and
+response. It remembers which chunks of which internal documents already reached
+each destination class, per person and per declared team. When the current
+prompt completes enough of one document, it adds a `cumulative` finding to the
+`DetectionResult` before response sees it.
+
+It is built and running in `detector/pipeline.py`, but the changes below touch
+both people's files, so none of it is in force until both agree. Reverting
+`policy.yaml`'s new rule turns it off.
+
+**What changes at the handoff (§2)**
+
+- `Evidence` gains `matched_chunk: int | null`: the chunk position inside
+  `matched_source`. Null for `weak`.
+- `confidence` gains a fourth value, `cumulative`. It is set only by the
+  context stage, never by `detect()`. `matched_source` is the document being
+  pieced together, `sensitivity` is that document's tier, `span` is the
+  strongest sentence in the current prompt that contributed, and `excerpt` is
+  empty.
+- `detection.detect_with_near_misses()` returns `(DetectionResult, [NearMiss])`.
+  A near miss clears `PROVENANCE_HIT` and beats the public corpus by at least
+  `CONTEXT_MARGIN` (0.04) but not by `PUBLIC_MARGIN`. Near misses never reach
+  response. `detect()` is unchanged.
+
+**When a `cumulative` finding is added**
+
+For one document and one destination class, counting only content that
+actually left (`allow` or `warn`, never `sanitize`, `block` or `private_local`)
+within `CONTEXT_WINDOW_DAYS` (14), all of these must hold. The person is checked
+first, then their team:
+
+- the current prompt adds a chunk that hadn't already gone out,
+- at least `CUMULATIVE_MIN_CHUNKS` (2) distinct chunks, from
+- at least `CUMULATIVE_MIN_PROMPTS` (2) distinct prompts, covering
+- at least `CUMULATIVE_COVERAGE` (0.3) of the document's chunks.
+
+These are tuned to the synthetic corpus, where a document is 3-6 chunks. A real
+corpus needs a lower coverage and a higher chunk count.
+
+**Response side**
+
+- `policy.yaml` gains `teams:` (declared membership, never inferred) and one
+  rule, `pieced together across prompts`: `cumulative`, tier 2 or above, to
+  `public_consumer` or `unknown`, is blocked. Other destinations fall through
+  to the existing tier rules (tier 3 to a vetted vendor is sanitized).
+- `PolicyEngine.team_of(user)` reads `teams:`.
+
+**Deliberately left out**
+
+- Inferring roles or teams from prompts. The person being judged could train it.
+- Using history to decide what counts as confidential. The corpus decides; history only adds up evidence.
+- Escalating `weak` findings. They carry no document, so there is nothing to add up.
+- Need-to-know or anomaly alerts. NDAi stops accidental disclosure, not insiders.
+- Storing prompt text. `context_edges` holds doc, chunk, score, who, where and what policy did.
+
+**Checked on 13 Sep** (bge-small-en-v1.5): `python -m eval.check_context` passes
+13/13 fixture cases and 5/5 prompt sequences. The acquisition memo is caught
+across two prompts from one person and across two people on the finance team,
+and the Q3 results across two prompts. 12 harmless workplace prompts to a vetted
+vendor and 4 public questions never add up. Every prompt that got caught was a
+near miss: each piece fell under `PUBLIC_MARGIN` on its own. §7's figures are
+unchanged: `check_contract` 8/15, `response_fixtures` 10/10.
+
+**Known limits**
+
+- The §8 request-sentence false findings are recorded as edges. They don't add
+  up because they all land on the same chunk (`commercial-reorg.md` chunk 2),
+  but a real reorg sentence plus one of them would make two chunks. The §8 fix
+  also fixes this.
+- Near misses include noise, for example "What should the board be asking?" against
+  `series-c-terms.md`. The dashboard draws near-miss-only edges lighter so the
+  graph doesn't claim more than detection does.
+- `demo_seed.py`'s architecture prompt leaves a near-miss edge on
+  `roadmap-2027.md` (§8, architecture docs out of scope).
+
+**Peter's review (Response side), 14 Sep — one disagreement, rest agreed**
+
+Went through the five questions above with Peter directly. Recorded here per
+the "note, don't edit" rule — §9 stays proposed until you two agree.
+
+1. **Cumulative tier 2+ to `public_consumer`/`unknown`: disagreement.** Peter
+   wants a chance at `sanitize` before `block`, not a hardcoded block. His
+   reasoning: `rewrite.py` already refuses upfront when the sensitive content
+   is the thing being reasoned about rather than background, and
+   `pipeline.py` already downgrades `sanitize` → `block` whenever the rewrite
+   is refused or Ollama is unreachable - that fallback doesn't care *why* the
+   decision was `sanitize`, so it already gives "try to sanitize, block if
+   that doesn't hold up" for free. Concrete proposed change: the "pieced
+   together across prompts" rule's `then: block` becomes `then: sanitize`.
+   Tier 3 is unaffected either way (it blocks on its own rule regardless of
+   confidence). Separately flagged as a real gap, not something to build
+   today: neither side currently checks whether the *rewritten* text is still
+   a useful prompt - the existing refusal logic is upfront (original
+   phrasing), not a check on the rewrite's output. Worth a future pass.
+2. **Confidence-less rules matching `cumulative` by default: agreed.**
+   Opt-out (write a rule only where cumulative needs to differ) over opt-in
+   (every rule enumerates confidence) - opt-in would need a full rule set
+   duplicated for cumulative or gaps silently fall through to `allow`.
+3. **Credential handling: agreed**, matches what Peter wanted from §8.
+4. **`demo_seed.py` architecture prompts: already resolved on `main`**,
+   independent of this branch - removed in `5aee5a3` when detection's scope
+   was confirmed as the 3 contract types only. Rebasing this branch onto
+   current `main` will need to reconcile with that (see below), not re-add
+   them.
+5. **Teams as demo personas: agreed**, no change needed -
+   `demo_seed.py` already uses dana/priya/sam, matching `teams:`. Separately:
+   real-user testing vs. team self-testing is an open question Peter raised,
+   deliberately not decided here - flagged for later, not blocking this
+   branch.
+
+**Also found in review, not a §9 design question but blocks a clean merge:**
+this branch forked from `b690976`, which is 3 commits behind current `main`
+(`db16ced` pipeline integration, `487bfd8` a corpus bug fix + eligibility
+revert in `provenance.py` + eval set expansion, `5aee5a3` the demo rebuild
+in point 4 above). A trial merge conflicts in `demo_seed.py`,
+`detector/provenance.py`, and `detector/pipeline.py` (8 separate hunks -
+both branches independently rewrote `inspect()` from the same starting
+point). None of it is unfixable, but whoever merges needs to rebase onto
+current `main` first and reconcile by hand, not fast-forward. Worth
+resolving together rather than either of us guessing at the other's intent
+on the parts that don't touch §9 directly (the finding-dict shape in
+particular should follow this branch's version - main's version silently
+stopped matching what `extension/content.js` expects).
