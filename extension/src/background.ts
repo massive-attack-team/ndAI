@@ -6,11 +6,12 @@ import type { WireFile } from "./review/channel";
 import { createSession } from "./review/session";
 import { deleteSession, getSession } from "./review/store";
 
-// Defaults to the local detector (matches the product's actual local-first
-// design - a real install shouldn't silently phone a cloud endpoint). Build
-// with NDAI_API_URL=<hosted-url> npm run build for a demo build that talks
-// to the hosted instance instead, e.g. for recording without a local server
-// running. Same build.mjs `define` the standalone preview page uses.
+// Defaults to the hosted demo API for the submission period (build.mjs).
+// The product's real design is local-first - a genuine install shouldn't
+// silently phone a cloud endpoint - but defaulting to it here removes a
+// whole class of "forgot to set the env var" mismatches while this is
+// being demoed and judged. NDAI_API_URL=http://127.0.0.1:8000 npm run build
+// to point this back at your own local detector.main.
 const ENDPOINT = __NDAI_API_URL__;
 const DEFAULTS = { user: "unknown", role: "default", failClosed: true, enabled: true };
 

@@ -8,10 +8,13 @@ const watch = serve || process.argv.includes("--watch");
 
 const common = {
   outdir: "dist", bundle: true, logLevel: "info", sourcemap: watch ? "inline" : false,
-  // NDAI_API_URL=https://your-host npm run build - for a standalone deploy
-  // of extension/preview/ pointed at a hosted detector (see detector_client.ts).
-  // Unset, this defaults to the local detector, same as every other flow.
-  define: { __NDAI_API_URL__: JSON.stringify(process.env.NDAI_API_URL || "http://127.0.0.1:8000") },
+  // Defaults to the hosted demo API for the submission period, so a plain
+  // `npm run build` with no env var is correct for every surface (real
+  // extension, preview page) without remembering to set anything - repeated
+  // "forgot the env var" mismatches were costing more than they were worth.
+  // NDAI_API_URL=http://127.0.0.1:8000 npm run build to point at your own
+  // local detector.main instead.
+  define: { __NDAI_API_URL__: JSON.stringify(process.env.NDAI_API_URL || "https://ndai-449222277673.europe-west1.run.app") },
 };
 
 // Content scripts and the service worker can't be ES modules.
