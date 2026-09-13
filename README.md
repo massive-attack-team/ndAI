@@ -141,26 +141,27 @@ material, before quoting numbers.
 ## Project layout
 
 ```
-detector/          local service (FastAPI, 127.0.0.1 only)
-  secrets_scan       step 1: patterns and entropy
-  detection          step 2: text in, DetectionResult out (CONTRACT.md)
-  provenance         step 2: matching against internal and public corpus
-  categories         step 2: topic-only fallback signal
-  context            step 3: per-person and per-team exposure
-  policy             step 4: evaluates policy.yaml
-  rewrite            local model for the block path
-  calibration        per-type thresholds from the audit log
-  ingest             files to text chunks
-  audit              SQLite log: hashes and redacted previews, no raw text
-  pipeline           wires the steps together
-sanitiser/         step 5: per-sentence rewrite with re-check
-extension/         Chrome MV3, TypeScript, file upload and review page
-dashboard/         Vite + React + TypeScript, live event stream
-eval/              datasets and checks
-corpus/internal/   sample confidential documents
-corpus/public/     public documents on the same subjects
-policy.yaml        rules, readable by a security lead
-CONTRACT.md        DetectionResult schema, document types, sensitivity tiers, decision log
+detector/         local inspection service (FastAPI, 127.0.0.1 only)
+  secrets_scan     stage 1, patterns and entropy
+  detection        stage 2, text in, DetectionResult out (CONTRACT.md)
+  provenance       company-specific matching against the corpus. the novel part
+  categories       prototype embeddings, weak fallback signal, no training
+  context          stage 2b, per-person and per-team exposure, the context graph
+  calibration      per-type threshold adjustment from team + user audit history
+  policy           stage 3, evaluates policy.yaml
+  ingest           file to text chunks: csv / md / txt / pdf / xlsx / parquet
+  pipeline         wires the stages above together
+  rewrite          local model access for the block path
+  audit            SQLite log, hashes and redacted previews, not raw text
+                   (context_edges sits beside it: doc, chunk, score, never text)
+sanitiser/         stage 4, per-span rewrite with a re-detection verification loop
+extension/         Chrome MV3, TypeScript, file upload and a review UI
+dashboard/         Vite + React, live stream, context graph, and the three-way comparison
+eval/              labelled dataset and metrics harnesses
+corpus/internal    fake company confidential material
+corpus/public      hard negatives, same field, public sources
+policy.yaml        the rules, readable by a security lead
+CONTRACT.md        the DetectionResult schema, type taxonomy, sensitivity rubric
 ```
 
 ## Roadmap
@@ -171,6 +172,5 @@ CONTRACT.md        DetectionResult schema, document types, sensitivity tiers, de
 4. Coverage beyond the browser: a proxy for IDE assistants and CLI tools.
 5. Return an edited copy of uploaded files, not just a decision per row.
 6. Show calibration and per-user history in the dashboard.
-7. Port the exposure graph (`dashboard/src/ContextGraph.jsx`) into the new dashboard; nothing renders it now.
-8. Real PDF/DOCX text extraction in the backend.
-9. Offer the local answer in the extension when a message is blocked.
+7. Real PDF/DOCX text extraction in the backend.
+8. Offer the local answer in the extension when a message is blocked.
