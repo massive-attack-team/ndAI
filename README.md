@@ -1,5 +1,7 @@
 # ndAI (NDA + AI)
 
+Team Massive Attack's Submission to the [Forward: AI in Business Hackathon](https://forward.devpost.com/?_gl=1*1oy0dzw*_gcl_au*NjY5OTY4NzUyLjE3ODkwMzYyNzY.*_ga*MTg2MzU5NDM5Ni4xNzg5MDM2Mjc3*_ga_0YHJK3Y10M*czE3ODkzMDkwNDgkbzExJGcxJHQxNzg5MzA5NDExJGo1NiRsMCRoMA..).
+
 ndAI checks what an employee pastes, types or uploads into an AI tool
 (ChatGPT, Claude, Gemini) before it is sent. It recognises the company's own
 confidential material, then allows, warns, rewrites or blocks. The check runs
@@ -7,7 +9,7 @@ on the employee's machine.
 
 ## Try the product
 
-No backend to run — the extension build targets a hosted detector by default.
+No backend to run, the extension build targets a hosted detector by default.
 
 1. Build it:
    ```bash
@@ -150,7 +152,7 @@ changes roles or clearance.
 - **Interception is limited to typing, pasting and uploads.** Deeper hooks break the host site on every update.
 - **The public corpus is a snapshot, not a live search.** Recent public news may be flagged. A live lookup would send data out before the decision, which defeats the purpose.
 
-## Getting started
+## Run your own detector
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
