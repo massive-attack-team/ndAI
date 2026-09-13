@@ -177,6 +177,17 @@ class ProvenanceDetector:
         pub_scores, _ = self.public.best(vecs)
 
         margins = int_scores - pub_scores
+        # Tried letting a high absolute score (>= PROVENANCE_STRONG) bypass the
+        # margin check on the theory that near-identical wording doesn't need
+        # public's permission - reverted. On short, topically generic
+        # sentences BGE cosine runs hot enough that questions like "what's the
+        # standard blood draw schedule for liver enzymes" also clear 0.78
+        # against internal docs, and sometimes clear it even higher against
+        # public ones (negative margin) - an absolute bypass let those through
+        # as false positives. The margin is what's actually discriminating
+        # here, verbatim or not; keep it required for every hit - `margin`
+        # just lets detection.py ask for a lower bar (CONTEXT_MARGIN) to
+        # collect near misses, not skip the check.
         eligible = (int_scores >= config.PROVENANCE_HIT) & (margins >= margin)
 
         hits = []

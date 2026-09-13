@@ -22,12 +22,19 @@ CHUNK_STRIDE = 30
 
 # --- Thresholds -------------------------------------------------------------
 # Tuned on eval/run_eval.py output against the real bge-small-en-v1.5 backend
-# (2026-09-12, 40-sample seed set: recall 0.826, fpr 0.0). Re-tune once
-# eval/dataset.py grows past 40 samples - these are not stable numbers yet.
+# (2026-09-13, 56-sample set after adding strategic_plan/financial_plan/
+# research_report corpus+samples: recall 0.735, fpr_hard_negatives 0.059 -
+# 1 of 17 public-domain hard negatives still flagged, via the standalone
+# category classifier, not provenance). Still not stable - re-tune once
+# eval/dataset.py grows past 200, per README.
 #
 # BGE cosine similarities run hot: even unrelated sentences sit around
 # 0.5-0.65 against any corpus, so PUBLIC_MARGIN carries most of the
-# discriminating power here, not PROVENANCE_HIT on its own.
+# discriminating power here, not PROVENANCE_HIT on its own. This also means a
+# high absolute score alone (even near PROVENANCE_STRONG) doesn't reliably
+# mean "ours" on a short, topically generic sentence - don't let anything
+# bypass PUBLIC_MARGIN on absolute score alone (see the comment in
+# provenance.py's check_all - this was tried and reverted).
 PROVENANCE_HIT = 0.62        # cosine above this = derived from internal corpus
 PROVENANCE_STRONG = 0.78     # above this = near-verbatim
 PUBLIC_MARGIN = 0.105        # internal score must beat best public score by this

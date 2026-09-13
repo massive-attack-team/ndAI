@@ -12,5 +12,6 @@ cumulative exposure using on/off dosing schedules rather than continuous
 administration.
 
 Tumour volume reduction relative to vehicle control remains the standard
-efficacy readout at the study endpoint, most commonly reported at day 21 in
-xenograft models, consistent with general practice in the field.
+efficacy readout in xenograft models generally, with the exact endpoint
+timing varying by study design and typically set well in advance based on
+expected tumour growth kinetics for the model in use.
