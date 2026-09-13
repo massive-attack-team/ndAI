@@ -12,8 +12,13 @@
 import { applyEdits, type Edit } from "./edits";
 import { placeholderFor } from "./tiers";
 import type {
-  Action, Confidence, DestinationClass, DetectionFinding, DocType, Finding, Inspection, SecretFinding,
+  Action, CategoryFinding, Confidence, DestinationClass, DocType, Finding, Inspection, ProvenanceFinding, SecretFinding,
 } from "./types";
+
+// This mock never simulates the context stage (detector/context.py) - that
+// needs cross-call history the browser-only mock has no backend for -so it
+// only ever produces "verbatim" | "paraphrase" | "weak", never "cumulative".
+type MockConfidence = "verbatim" | "paraphrase" | "weak";
 
 const MOCK_LATENCY_MS = 140; // long enough to exercise out-of-order responses
 
@@ -70,7 +75,7 @@ interface CorpusRule {
   source: string | null;
   type: DocType;
   sensitivity: 0 | 1 | 2 | 3;
-  confidence: Confidence;
+  confidence: MockConfidence;
   score: number | null;
   publicScore: number | null;
   signals: RegExp[];
@@ -134,7 +139,20 @@ const WEAK_RULES: CorpusRule[] = [
     signals: [/\b(?:confidential|internal only|do not share|not yet announced|unannounced)\b/i, /\b(?:roadmap|launch|reorg|layoffs?|market entry|pricing)\b/i] },
 ];
 
-interface Hit { finding: DetectionFinding; rule: CorpusRule }
+interface Hit { finding: ProvenanceFinding | CategoryFinding; rule: CorpusRule }
+
+function buildFinding(rule: CorpusRule, span: [number, number], excerpt: string): ProvenanceFinding | CategoryFinding {
+  const base = { type: rule.type, tier: rule.sensitivity, span };
+  if (rule.confidence === "weak") {
+    return { kind: "category", confidence: "weak", label: rule.type, score: rule.score, ...base };
+  }
+  const margin = rule.score != null && rule.publicScore != null ? +(rule.score - rule.publicScore).toFixed(2) : null;
+  return {
+    kind: "provenance", confidence: rule.confidence, label: rule.source ?? "internal document",
+    score: rule.score ?? 0, public_score: rule.publicScore, margin, verbatim: rule.confidence === "verbatim",
+    excerpt, ...base,
+  };
+}
 
 // A "." followed by a digit is a decimal, not a sentence end.
 const SENTENCE = /(?:[^.!?\n]|\.(?=\d))+[.!?]*/g;
@@ -162,16 +180,8 @@ export function detect(text: string): Hit[] {
     const rule = bestRule(body, CORPUS_RULES) ?? bestRule(body, WEAK_RULES);
     if (!rule) continue;
     const start = m.index + (raw.length - raw.trimStart().length);
-    hits.push({
-      rule,
-      finding: {
-        kind: "detection", type: rule.type, sensitivity: rule.sensitivity, confidence: rule.confidence,
-        span: [start, start + body.length], matched_source: rule.source, score: rule.score,
-        public_baseline_score: rule.publicScore,
-        margin: rule.score != null && rule.publicScore != null ? +(rule.score - rule.publicScore).toFixed(2) : null,
-        excerpt: `${body.split(/\s+/).slice(0, 5).join(" ")}…`,
-      },
-    });
+    const span: [number, number] = [start, start + body.length];
+    hits.push({ rule, finding: buildFinding(rule, span, `${body.split(/\s+/).slice(0, 5).join(" ")}…`) });
   }
   return hits;
 }
@@ -264,12 +274,12 @@ export async function mockInspect(text: string, destination: string): Promise<In
 
   const critical = secrets.some((s) => s.critical);
   const secretSensitivity = critical ? 3 : secrets.length ? 2 : 0;
-  const sensitivity = Math.max(secretSensitivity, ...hits.map((h) => h.finding.sensitivity));
+  const sensitivity = Math.max(secretSensitivity, ...hits.map((h) => h.finding.tier));
 
   // pipeline.py evaluates secrets and detection separately; the more severe wins.
   const decisions = [
     evaluate({ sensitivity: secretSensitivity, critical }, dest),
-    ...hits.map((h) => evaluate({ sensitivity: h.finding.sensitivity, confidence: h.finding.confidence }, dest)),
+    ...hits.map((h) => evaluate({ sensitivity: h.finding.tier, confidence: h.finding.confidence }, dest)),
   ];
   const decision = decisions.reduce((a, b) => (SEVERITY.indexOf(b.then) > SEVERITY.indexOf(a.then) ? b : a));
 

@@ -97,7 +97,7 @@ async function buildDocument(file: RawFile, host: string, id: string): Promise<R
       masked: f.kind === "secret" ? f.preview : null,
       after: f.kind === "secret"
         ? placeholderFor(f.label)
-        : `[${SENSITIVITY[f.sensitivity]} ${f.type.replace("_", " ")} passage removed]`,
+        : `[${SENSITIVITY[f.tier]} ${f.type.replace("_", " ")} passage removed]`,
       tier,
       title: copy.title,
       reason: copy.detail,

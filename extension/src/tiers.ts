@@ -39,8 +39,8 @@ export function minTier(a: Tier, b: Tier): Tier {
 /** Tier of one span on its own, before the destination policy caps it. Null = not worth underlining. */
 export function findingTier(f: Finding): Tier | null {
   if (f.kind === "secret") return f.critical ? "red" : "yellow";
-  if (f.sensitivity >= 3 && f.confidence !== "weak") return "red";
-  if (f.sensitivity >= 2) return "yellow";
+  if (f.tier >= 3 && f.kind !== "category") return "red";
+  if (f.tier >= 2) return "yellow";
   return null;
 }
 
@@ -70,22 +70,34 @@ export function describeFinding(f: Finding): FindingCopy {
       placeholder: placeholderFor(f.label),
     };
   }
-  const src = f.matched_source ? `internal doc “${docName(f.matched_source)}”` : "an internal document";
-  const detail =
-    f.confidence === "verbatim" ? `Near-verbatim copy of ${src}.`
-    : f.confidence === "paraphrase" ? `Paraphrases ${src}.`
-    : `Reads like ${TYPE_LABEL[f.type].toLowerCase()} material, but no internal document matched.`;
-  let evidence: string | null = null;
-  if (f.score != null) {
-    evidence = `${pct(f.score)} internal match`;
-    if (f.public_baseline_score != null) evidence += ` · best public match ${pct(f.public_baseline_score)}`;
+
+  const title = `${TYPE_LABEL[f.type]} · ${SENSITIVITY_LABEL[f.tier]}`;
+
+  if (f.kind === "category") {
+    return {
+      title,
+      detail: `Reads like ${TYPE_LABEL[f.type].toLowerCase()} material, but no internal document matched.`,
+      evidence: f.score != null ? `${pct(f.score)} category match` : null,
+      placeholder: null,
+    };
   }
-  return {
-    title: `${TYPE_LABEL[f.type]} · ${SENSITIVITY_LABEL[f.sensitivity]}`,
-    detail,
-    evidence,
-    placeholder: null,
-  };
+
+  if (f.kind === "context") {
+    const who = f.scope === "team" ? "your team" : "you";
+    return {
+      title: `${title} · pieced together`,
+      detail: `${f.chunks_out} of ${f.chunk_total} sections of internal doc “${docName(f.label)}” sent from ${who} over ${f.prompts} prompts.`,
+      evidence: `${pct(f.coverage)} of the document`,
+      placeholder: null,
+    };
+  }
+
+  // provenance: verbatim or paraphrase, matched a specific internal doc.
+  const src = `internal doc “${docName(f.label)}”`;
+  const detail = f.confidence === "verbatim" ? `Near-verbatim copy of ${src}.` : `Paraphrases ${src}.`;
+  let evidence: string | null = `${pct(f.score)} internal match`;
+  if (f.public_score != null) evidence += ` · best public match ${pct(f.public_score)}`;
+  return { title, detail, evidence, placeholder: null };
 }
 
 export function findingKey(f: Finding, quote: string): string {
