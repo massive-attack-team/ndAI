@@ -78,7 +78,13 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b-instruct")
 REWRITE_TIMEOUT_S = 20
 
 # --- Service ----------------------------------------------------------------
-HOST = "127.0.0.1"           # never 0.0.0.0. The detector does not accept remote traffic.
-PORT = int(os.getenv("NDAI_PORT", "8000"))
+# Defaults stay 127.0.0.1: for a real install, the detector never accepts
+# remote traffic - that's the whole premise. NDAI_HOST exists only for
+# standing up a public demo instance (a judge-facing deployment, not "the
+# product in production" - the real deployment model is still local, per
+# install). Never set NDAI_HOST=0.0.0.0 on a machine that also holds real
+# company documents in corpus/internal.
+HOST = os.getenv("NDAI_HOST", "127.0.0.1")
+PORT = int(os.getenv("PORT", os.getenv("NDAI_PORT", "8000")))  # Render sets PORT
 DB_PATH = ROOT / "ndai.db"
 POLICY_PATH = ROOT / "policy.yaml"

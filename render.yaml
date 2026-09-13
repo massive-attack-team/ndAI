@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: ndai-detector
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m detector.main
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: NDAI_HOST
+        value: 0.0.0.0
+      - key: NDAI_EXTRA_ORIGINS
+        # Fill in after the dashboard and preview page have their real URLs,
+        # comma-separated, e.g.: https://ndai.vercel.app,https://ndai-preview.vercel.app
+        value: ""

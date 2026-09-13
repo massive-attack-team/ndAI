@@ -1,0 +1,800 @@
+<title>NDAi Playbook</title>
+<style>
+  :root {
+    --ink: #14171f;
+    --ink-soft: #2a2f3d;
+    --paper: #f6f4ee;
+    --paper-raised: #ffffff;
+    --rule: #dcd7c9;
+    --text: #1c1e24;
+    --text-soft: #55596a;
+    --text-faint: #8a8d9a;
+    --accent: #a8681f;
+    --accent-soft: #e8d9c2;
+    --tier0: #5b7a6c;
+    --tier1: #4b7ba5;
+    --tier2: #b8862f;
+    --tier3: #a8422f;
+    --tier0-bg: #e4ece7;
+    --tier1-bg: #e3ecf3;
+    --tier2-bg: #f3e7d2;
+    --tier3-bg: #f2ddd6;
+    --code-bg: #ece7da;
+    --shadow: 0 1px 2px rgba(20,23,31,.06), 0 8px 24px rgba(20,23,31,.06);
+    --serif: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #f4f1e8;
+      --ink-soft: #cfd0d8;
+      --paper: #14161d;
+      --paper-raised: #1b1e27;
+      --rule: #333748;
+      --text: #e9e7de;
+      --text-soft: #a8abbc;
+      --text-faint: #6d7086;
+      --accent: #d99a4e;
+      --accent-soft: #3a3020;
+      --tier0: #7fae99;
+      --tier1: #7fb0e0;
+      --tier2: #d9a94e;
+      --tier3: #dd7c68;
+      --tier0-bg: #1c2a24;
+      --tier1-bg: #1b2733;
+      --tier2-bg: #2e2718;
+      --tier3-bg: #2f1e1b;
+      --code-bg: #21242e;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #f4f1e8;
+    --ink-soft: #cfd0d8;
+    --paper: #14161d;
+    --paper-raised: #1b1e27;
+    --rule: #333748;
+    --text: #e9e7de;
+    --text-soft: #a8abbc;
+    --text-faint: #6d7086;
+    --accent: #d99a4e;
+    --accent-soft: #3a3020;
+    --tier0: #7fae99;
+    --tier1: #7fb0e0;
+    --tier2: #d9a94e;
+    --tier3: #dd7c68;
+    --tier0-bg: #1c2a24;
+    --tier1-bg: #1b2733;
+    --tier2-bg: #2e2718;
+    --tier3-bg: #2f1e1b;
+    --code-bg: #21242e;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--paper);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .shell {
+    display: grid;
+    grid-template-columns: 260px minmax(0,1fr);
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 2.5rem 1.5rem 2.5rem 2rem;
+    border-right: 1px solid var(--rule);
+  }
+  nav.toc .brand {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+    margin-bottom: .15rem;
+  }
+  nav.toc .brand-sub {
+    font-size: .72rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    margin-bottom: 1.8rem;
+  }
+  nav.toc .part-label {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 1.6rem 0 .5rem;
+  }
+  nav.toc .part-label:first-of-type { margin-top: 0; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: toc; }
+  nav.toc li { counter-increment: toc; margin-bottom: .1rem; }
+  nav.toc a {
+    display: block;
+    font-size: .86rem;
+    color: var(--text-soft);
+    text-decoration: none;
+    padding: .3rem .5rem .3rem 0;
+    border-radius: 4px;
+  }
+  nav.toc a:before {
+    content: counter(toc) "  ";
+    font-family: var(--mono);
+    color: var(--text-faint);
+    font-size: .78rem;
+  }
+  nav.toc a:hover { color: var(--accent); }
+
+  main { padding: 2.5rem 3rem 6rem; min-width: 0; }
+
+  .titleblock {
+    padding: 2.5rem 0 3rem;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 3rem;
+  }
+  .titleblock .eyebrow {
+    font-family: var(--mono);
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--accent);
+    margin-bottom: .9rem;
+  }
+  .titleblock h1 {
+    font-family: var(--serif);
+    font-size: 3rem;
+    font-weight: 600;
+    line-height: 1.05;
+    margin: 0 0 .8rem;
+    text-wrap: balance;
+  }
+  .titleblock .dek {
+    font-size: 1.15rem;
+    color: var(--text-soft);
+    max-width: 42em;
+    text-wrap: balance;
+    margin: 0 0 1.6rem;
+  }
+  .meta-row {
+    display: flex;
+    gap: 2.2rem;
+    flex-wrap: wrap;
+    font-size: .82rem;
+    color: var(--text-faint);
+    font-family: var(--mono);
+  }
+  .meta-row strong { color: var(--text-soft); font-weight: 500; }
+
+  section { margin-bottom: 3.2rem; }
+  .part-divider {
+    margin: 4.5rem 0 3rem;
+    padding-top: 2.5rem;
+    border-top: 3px solid var(--ink);
+  }
+  .part-divider .part-eyebrow {
+    font-family: var(--mono);
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: var(--accent);
+    margin-bottom: .6rem;
+  }
+  .part-divider h1 {
+    font-family: var(--serif);
+    font-size: 2.3rem;
+    margin: 0 0 .6rem;
+    text-wrap: balance;
+  }
+  .part-divider p { color: var(--text-soft); max-width: 46em; margin: 0; }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+    padding-bottom: .6rem;
+    border-bottom: 1px solid var(--rule);
+    text-wrap: balance;
+  }
+  h2 .num { color: var(--accent); font-family: var(--mono); font-size: 1rem; margin-right: .5rem; }
+  h3 {
+    font-family: var(--sans);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 1.6rem 0 .6rem;
+  }
+  p { max-width: 62ch; margin: 0 0 1rem; }
+  p.wide { max-width: 74ch; }
+  ul, ol.plain { max-width: 62ch; padding-left: 1.3rem; margin: 0 0 1rem; }
+  li { margin-bottom: .4rem; }
+  a { color: var(--accent); }
+  code {
+    font-family: var(--mono);
+    background: var(--code-bg);
+    padding: .1rem .35rem;
+    border-radius: 3px;
+    font-size: .88em;
+  }
+
+  /* tier / confidence / action chips — the product's own vocabulary, used as typographic devices */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    font-family: var(--mono);
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .03em;
+    padding: .18rem .55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .chip.t0 { background: var(--tier0-bg); color: var(--tier0); }
+  .chip.t1 { background: var(--tier1-bg); color: var(--tier1); }
+  .chip.t2 { background: var(--tier2-bg); color: var(--tier2); }
+  .chip.t3 { background: var(--tier3-bg); color: var(--tier3); }
+  .chip-row { display: flex; gap: .5rem; flex-wrap: wrap; margin: .8rem 0 1.4rem; }
+
+  .callout {
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 1.1rem 1.3rem;
+    margin: 1.2rem 0;
+    max-width: 68ch;
+    box-shadow: var(--shadow);
+  }
+  .callout .label {
+    font-family: var(--mono);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin-bottom: .4rem;
+    display: block;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .stage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1.4rem 0 1.8rem;
+    max-width: 74ch;
+  }
+  .stage-card {
+    background: var(--paper-raised);
+    padding: 1.1rem 1.2rem;
+  }
+  .stage-card .stage-num {
+    font-family: var(--mono);
+    font-size: .72rem;
+    color: var(--accent);
+    letter-spacing: .06em;
+  }
+  .stage-card h4 {
+    font-family: var(--sans);
+    font-size: .95rem;
+    font-weight: 600;
+    margin: .25rem 0 .4rem;
+  }
+  .stage-card p { font-size: .84rem; color: var(--text-soft); margin: 0; max-width: none; }
+
+  .flow {
+    font-family: var(--mono);
+    font-size: .82rem;
+    color: var(--text-soft);
+    background: var(--code-bg);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    margin: 1rem 0 1.6rem;
+    max-width: 74ch;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    max-width: 74ch;
+    margin: 1rem 0 1.8rem;
+    font-size: .88rem;
+  }
+  caption { text-align: left; caption-side: top; font-size: .78rem; color: var(--text-faint); margin-bottom: .4rem; font-family: var(--mono); }
+  th, td {
+    text-align: left;
+    padding: .55rem .8rem;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th { font-family: var(--mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); font-weight: 600; }
+  td.num, th.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; max-width: 74ch; }
+
+  .stat-row { display: flex; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; max-width: 74ch; margin: 1.2rem 0 1.8rem; flex-wrap: wrap; }
+  .stat { background: var(--paper-raised); padding: 1rem 1.3rem; flex: 1 1 140px; }
+  .stat .n { font-family: var(--mono); font-size: 1.5rem; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: .76rem; color: var(--text-faint); margin-top: .2rem; }
+
+  /* Q&A */
+  .qa-cat {
+    font-family: var(--mono);
+    font-size: .74rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--accent);
+    margin: 2.6rem 0 1rem;
+    padding-bottom: .4rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .qa-cat:first-of-type { margin-top: 0; }
+  .qa {
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+    gap: .2rem 1rem;
+    margin-bottom: 1.5rem;
+    max-width: 74ch;
+  }
+  .qa .qnum {
+    font-family: var(--mono);
+    font-size: .8rem;
+    color: var(--text-faint);
+    padding-top: .15rem;
+  }
+  .qa .q {
+    grid-column: 2;
+    font-weight: 600;
+    font-size: .98rem;
+  }
+  .qa .a {
+    grid-column: 2;
+    color: var(--text-soft);
+    font-size: .93rem;
+    margin-top: .3rem;
+  }
+  .qa .a p { margin: 0 0 .5rem; max-width: none; }
+  .qa .a p:last-child { margin-bottom: 0; }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--rule);
+    font-size: .78rem;
+    color: var(--text-faint);
+    font-family: var(--mono);
+  }
+
+  @media print {
+    nav.toc { display: none; }
+    .shell { grid-template-columns: 1fr; max-width: none; }
+    main { padding: 0 .3in; }
+    body { background: #fff; font-size: 11.5pt; }
+    .part-divider { break-before: page; }
+    .callout, .stage-card, .stat, table { break-inside: avoid; }
+    a { color: inherit; text-decoration: underline; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+    nav.toc { display: none; }
+    main { padding: 2rem 1.2rem 4rem; }
+    .titleblock h1 { font-size: 2.2rem; }
+  }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<div class="shell">
+  <nav class="toc">
+    <div class="brand">NDAi</div>
+    <div class="brand-sub">Playbook</div>
+
+    <div class="part-label">Part I — Product</div>
+    <ol>
+      <li><a href="#problem">The problem</a></li>
+      <li><a href="#idea">The core idea</a></li>
+      <li><a href="#architecture">System architecture</a></li>
+      <li><a href="#stage-detect">Detection</a></li>
+      <li><a href="#stage-context">Context stage</a></li>
+      <li><a href="#stage-policy">Policy engine</a></li>
+      <li><a href="#stage-sanitise">Sanitiser</a></li>
+      <li><a href="#surfaces">Product surfaces</a></li>
+      <li><a href="#eval">Evaluation &amp; numbers</a></li>
+      <li><a href="#stack">Tech stack</a></li>
+      <li><a href="#limits">Known limitations</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+      <li><a href="#team">Team</a></li>
+    </ol>
+
+    <div class="part-label">Part II — Judge prep</div>
+    <ol start="14">
+      <li><a href="#qa-differentiation">Product &amp; differentiation</a></li>
+      <li><a href="#qa-technical">Technical &amp; architecture</a></li>
+      <li><a href="#qa-accuracy">Accuracy &amp; evaluation</a></li>
+      <li><a href="#qa-privacy">Privacy &amp; ethics</a></li>
+      <li><a href="#qa-business">Business &amp; market</a></li>
+      <li><a href="#qa-skeptical">Skeptical questions</a></li>
+      <li><a href="#qa-deploy">Scale &amp; deployment</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <div class="titleblock">
+      <div class="eyebrow">Internal reference — hackathon submission</div>
+      <h1>NDAi Playbook</h1>
+      <p class="dek">The NDA your AI assistant actually reads. A local semantic firewall that judges what an employee is about to paste into an external AI tool using company-specific knowledge, not pattern matching — and either allows it, rewrites it to the minimum necessary context, or stops it.</p>
+      <div class="meta-row">
+        <span><strong>Team</strong> Peter · Hoang Phuc Le · chi-n-nguyen · cmaii2411</span>
+        <span><strong>Corpus persona</strong> Kestrel Bio (fictional biotech)</span>
+        <span><strong>Status</strong> main branch, all suites green</span>
+      </div>
+    </div>
+
+    <!-- ============================= PART I ============================= -->
+
+    <section id="problem">
+      <h2><span class="num">01</span>The problem</h2>
+      <p class="wide">Employees paste customer data, source code, and financial plans into ChatGPT-style tools to get quick help. That data leaves the company's control — no audit trail, no way to delete it, no way to know it happened. By early 2026, one in five organizations had already had a security breach involving unmanaged AI use, and those incidents carry a materially higher financial impact than a typical breach.</p>
+      <p class="wide">This is partly solved already. Companies buy monitoring and governance tools that detect sensitive pastes and block them. But those tools are reactive — they catch the paste after someone decided to make it, and they're blunt enough that people learn to route around them. That's the gap NDAi is built for.</p>
+    </section>
+
+    <section id="idea">
+      <h2><span class="num">02</span>The core idea</h2>
+      <p class="wide">Pattern-based DLP catches credentials and PII. Generic semantic DLP catches categories — "this looks like source code," "this looks financial." Neither answers the question that actually matters to a research lab or a company with real IP:</p>
+      <div class="callout">
+        <span class="label">The question</span>
+        <p>Is this text derived from <em>our</em> confidential material — or is it just someone writing about a topic they're entitled to discuss?</p>
+      </div>
+      <p class="wide">NDAi answers that with a local provenance index over the company's own documents, scored against a second index of public material in the same field. That second index is the part most teams skip. Without it, a detector trained on an oncology corpus flags every sentence a biologist writes about oncology — the false-positive rate makes the tool unusable, and people turn it off. Everything else in NDAi (the policy engine, the rewriter, the dashboard) is scaffolding around that one claim.</p>
+    </section>
+
+    <section id="architecture">
+      <h2><span class="num">03</span>System architecture</h2>
+      <p>A prompt passes through five stages before it reaches the destination AI tool:</p>
+      <div class="flow">text ──▶ 1. secrets      regex + Shannon entropy       credentials, PII
+     ──▶ 2. detection    cosine vs internal corpus     what it is, how sensitive
+     ──▶ 2b. context     what already left, over time  pieced-together leaks
+     ──▶ 3. policy       policy.yaml, first match       sensitivity × destination × role
+     ──▶ 4. sanitiser    per-span edits, verified        only when policy says sanitize</div>
+      <p class="wide">Risk is never a property of the text alone. The same paragraph is fine going to the internal model, logged going to a vetted vendor under contract, and blocked going to a personal ChatGPT account. That routing logic lives in <code>policy.yaml</code>, readable by a security lead without reading Python.</p>
+      <div class="stage-grid">
+        <div class="stage-card"><span class="stage-num">STAGE 1</span><h4>Secrets</h4><p>Regex + entropy scan for live credentials, API keys, connection strings. Runs first — a credential always wins regardless of anything else in the prompt.</p></div>
+        <div class="stage-card"><span class="stage-num">STAGE 2</span><h4>Detection</h4><p>Per-sentence provenance match against the internal corpus, discounted by the best public-domain match on the same topic.</p></div>
+        <div class="stage-card"><span class="stage-num">STAGE 2B</span><h4>Context</h4><p>Remembers what's already left, per person and per team, so a document leaked one piece at a time still gets caught.</p></div>
+        <div class="stage-card"><span class="stage-num">STAGE 3</span><h4>Policy</h4><p>A declarative rule table: sensitivity × destination × role → allow / warn / sanitize / block. First match wins, auditable by a human.</p></div>
+        <div class="stage-card"><span class="stage-num">STAGE 4</span><h4>Sanitiser</h4><p>Per-span redact / generalise / remove, verified by re-running detection on the candidate rewrite before it's ever shown.</p></div>
+      </div>
+    </section>
+
+    <section id="stage-detect">
+      <h2><span class="num">04</span>Detection</h2>
+      <p class="wide">Detection is scoped to three document types for this build — the kinds of unstructured, high-consequence material a pattern scanner can't touch:</p>
+      <ul>
+        <li><strong>Strategic plan</strong> — unannounced market moves, M&amp;A rationale, roadmap, org changes</li>
+        <li><strong>Financial plan</strong> — deal terms, fundraising, budget, guidance not yet public</li>
+        <li><strong>Research report</strong> — unpublished findings, in-progress results, methodology tied to a specific study</li>
+      </ul>
+      <p class="wide">Each finding carries a <strong>sensitivity tier</strong> (how bad a leak would be) and a <strong>confidence band</strong> (how the match was found) — kept as two separate axes on purpose, so a low-confidence guess and a confirmed leak of the same severity aren't treated identically.</p>
+      <h3>Sensitivity tiers</h3>
+      <div class="chip-row">
+        <span class="chip t0">TIER 0 · PUBLIC</span>
+        <span class="chip t1">TIER 1 · INTERNAL</span>
+        <span class="chip t2">TIER 2 · CONFIDENTIAL</span>
+        <span class="chip t3">TIER 3 · RESTRICTED</span>
+      </div>
+      <h3>Confidence bands, decreasing trust</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Band</th><th>What it means</th><th>Response's default treatment</th></tr></thead>
+          <tbody>
+            <tr><td><code>verbatim</code></td><td>Near-identical text match to a specific internal document</td><td>Can justify a block on its own</td></tr>
+            <tr><td><code>paraphrase</code></td><td>Semantic match to internal material that clears the margin over the best public match</td><td>The headline case — paraphrase recall is the number the whole product is judged on</td></tr>
+            <tr><td><code>weak</code></td><td>Type signal only — reads like the topic, no document matched</td><td>Never escalates past a warn, regardless of tier — the band most likely to be a false positive</td></tr>
+            <tr><td><code>cumulative</code></td><td>No single prompt was enough, but pieces from this person or their team already add up (see §06)</td><td>Confirmed evidence, not a guess — treated at least as seriously as verbatim</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="wide">The mechanism is the same for all three types: embed the candidate sentence, compare it against a reference corpus of internal documents, and score the gap between that and the best match in a second, public-domain corpus on the same subject. A hit only counts if it beats the public match by a margin — without that check, a researcher describing their own field in public terms would trip the detector on every sentence.</p>
+    </section>
+
+    <section id="stage-context">
+      <h2><span class="num">05</span>Context stage — the piece-at-a-time catch</h2>
+      <p class="wide">Detection judges one prompt at a time. A document leaked a sentence per message never trips it — each piece alone is too small, or too reworded, to clear the margin on its own. The context stage closes that gap. It remembers which chunks of which internal documents have already reached each destination class, per person and per declared team, over a rolling window. When the current prompt completes enough of one document — distinct chunks, from distinct prompts, covering a real share of the document — it adds a <code>cumulative</code> finding before the policy engine ever sees it.</p>
+      <p class="wide">It works across people, not just across a single person's messages: if one teammate sends the first third of a memo and a different teammate — on the same declared team — sends the next third to the same kind of destination, NDAi still recognizes it as one document going out, not two unrelated messages. Deliberately left out: inferring anyone's role or team from what they type (declared in policy, never learned — a person being judged could train it), and escalating weak findings this way (they carry no document, so there's nothing to add up). Nothing but a reference to the corpus is stored — no prompt text.</p>
+    </section>
+
+    <section id="stage-policy">
+      <h2><span class="num">06</span>Policy engine</h2>
+      <p class="wide">Deliberately dumb, on purpose: if a security lead can't read <code>policy.yaml</code> and predict the outcome, the product isn't auditable and nobody deploys it. Risk is computed as <strong>sensitivity × destination × role</strong>, evaluated as a flat, ordered rule table — first match wins.</p>
+      <h3>Destination classes</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Class</th><th>What it covers</th></tr></thead>
+          <tbody>
+            <tr><td><code>private_local</code></td><td>Runs inside the company network, or under a contract with no retention</td></tr>
+            <tr><td><code>enterprise_vetted</code></td><td>A vetted vendor under an enterprise agreement with a zero-retention endpoint</td></tr>
+            <tr><td><code>public_consumer</code></td><td>Consumer AI products — personal accounts are common here</td></tr>
+            <tr><td><code>unknown</code></td><td>Anything unlisted — treated one step stricter than public</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>The same restricted paragraph resolves differently by destination alone: allowed to the internal model, sanitized to a vetted vendor, blocked to a personal consumer account.</p>
+    </section>
+
+    <section id="stage-sanitise">
+      <h2><span class="num">07</span>Sanitiser</h2>
+      <p class="wide">When policy says <code>sanitize</code>, NDAi doesn't send a whole-prompt rewrite and hope. Each flagged span gets its own edit — redact, generalise, or remove — chosen from a declarative strategy table keyed on tier and confidence. The candidate rewrite is then fed back through the same detector that flagged it: if it still matches, the strategy escalates (generalise → redact → remove) for up to two passes, and fails closed to a full block if it's still leaking after that. This is exactly as good as the detector is, no better — and it's honest about that limit rather than pretending otherwise.</p>
+      <p class="wide">One case gets no rewrite at all: when the confidential content <em>is</em> the thing being reasoned about — "verify this proof," "why does this fail" — no edit preserves the task, so NDAi blocks outright and points to the internal model instead of handing back a mangled, unanswerable question.</p>
+      <div class="callout">
+        <span class="label">Stated out loud</span>
+        <p>Placeholders are not protection. <code>[COMPANY] will acquire [TARGET] for [AMOUNT]</code> still discloses that a secret deal exists. The rewrite changes what's being asked, not just the nouns.</p>
+      </div>
+    </section>
+
+    <section id="surfaces">
+      <h2><span class="num">08</span>Product surfaces</h2>
+      <h3>Chrome extension</h3>
+      <p class="wide">Intercepts paste and send on the major consumer AI sites — deliberately shallow (paste/send hooks, not deep DOM patching), because a tool that breaks the host page the week it ships a change gets uninstalled. Shows an inline verdict with the specific span at fault, and a document-upload &amp; review flow where every proposed redaction can be accepted or rejected individually before the sanitized file is produced — using the real backend's actual edits, not a guess.</p>
+      <h3>Dashboard</h3>
+      <p class="wide">A live stream of every inspected prompt, the three-way comparison against a naive regex scanner and a generic topic classifier on the same input, and a graph view of the context stage — teams, people, documents, and which destinations they've reached.</p>
+    </section>
+
+    <section id="eval">
+      <h2><span class="num">09</span>Evaluation &amp; numbers</h2>
+      <p class="wide">Two numbers decide whether the core claim holds: <strong>paraphrase recall</strong> (verbatim detection is trivial — anyone can do that), and the <strong>false-positive rate on public-domain hard negatives</strong> — the same subject matter, written from public sources. A detector that flags those has learned the topic, not the provenance.</p>
+      <div class="stat-row">
+        <div class="stat"><div class="n">0.735</div><div class="l">recall, 56-sample eval set</div></div>
+        <div class="stat"><div class="n">0.059</div><div class="l">FPR on public-domain hard negatives</div></div>
+        <div class="stat"><div class="n">10/10</div><div class="l">response policy fixtures</div></div>
+        <div class="stat"><div class="n">13/13 · 5/5</div><div class="l">context fixtures · live sequences</div></div>
+      </div>
+      <p class="wide">The corpus is synthetic (a fictional biotech, "Kestrel Bio") built as matched pairs — every internal document has a same-topic public counterpart written as a genuine hard negative, not obviously different filler. Numbers are honestly unstable at this sample size — <code>eval/run_eval.py</code> needs a 200+ prompt set, per the product's own stated caveat, before they're safe to quote with confidence.</p>
+    </section>
+
+    <section id="stack">
+      <h2><span class="num">10</span>Tech stack</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Layer</th><th>Choice</th></tr></thead>
+          <tbody>
+            <tr><td>Detection service</td><td>Python, FastAPI — binds to 127.0.0.1 only</td></tr>
+            <tr><td>Embeddings</td><td><code>sentence-transformers</code>, <code>BAAI/bge-small-en-v1.5</code> (char n-gram hashing fallback for offline dev — paraphrase detection off, never demo on it)</td></tr>
+            <tr><td>Local rewrite model</td><td>Ollama, <code>qwen2.5:3b-instruct</code> — nothing leaves the machine to generate a rewrite</td></tr>
+            <tr><td>Audit log</td><td>SQLite — hash + redacted preview only, never raw prompt text</td></tr>
+            <tr><td>Extension</td><td>Chrome MV3, TypeScript, esbuild</td></tr>
+            <tr><td>Dashboard</td><td>Vite + React</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="limits">
+      <h2><span class="num">11</span>Known limitations</h2>
+      <p class="wide">Stated deliberately, before a judge states them first:</p>
+      <ul>
+        <li><strong>Rewriting can't save a reasoning task.</strong> If the confidential content is the problem to solve, not context for it, no rewrite preserves the task — the honest answer is the internal model.</li>
+        <li><strong>This doesn't stop a frontier lab from competing with its customers.</strong> That's a contract and jurisdiction problem. NDAi stops accidental disclosure — the pasted <code>.env</code>, the draft board memo — not deliberate misuse by the vendor itself.</li>
+        <li><strong>Scoped to three document types for now.</strong> Source code, legal, and architecture material are explicitly out of scope for this build, not silently broken — a deliberate scope cut, on the record.</li>
+        <li><strong>Research freshness is local-only.</strong> The public corpus is built in advance, not fetched live — a paper published after the last refresh reads as a false positive. Live lookup would fix that but means the detector calls out before a decision is made, which is its own leak surface.</li>
+        <li><strong>Numbers aren't stable yet.</strong> 56 samples is a seed set, not a benchmark.</li>
+      </ul>
+    </section>
+
+    <section id="roadmap">
+      <h2><span class="num">12</span>Roadmap</h2>
+      <ol class="plain">
+        <li>Expand the eval set to 200+ prompts and re-tune thresholds on the results</li>
+        <li>Real corpus ingestion (Drive, Confluence, a repo) with incremental re-indexing, replacing a folder of files</li>
+        <li>Per-sentence highlighting in the extension so the user sees which line tripped it, not just a verdict</li>
+        <li>Approval workflow for a block — request an exception, route to a reviewer</li>
+        <li>Forward-proxy build for coverage beyond the browser — IDE assistants, CLI tools</li>
+      </ol>
+    </section>
+
+    <section id="team">
+      <h2><span class="num">13</span>Team</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Area</th><th>Owner</th><th>Scope</th></tr></thead>
+          <tbody>
+            <tr><td>Response</td><td>Peter</td><td>Policy engine, destination/role rules, rewrite integration</td></tr>
+            <tr><td>Detection</td><td>Hoang Phuc Le</td><td>Provenance corpus, type &amp; tier taxonomy, context/cumulative graph</td></tr>
+            <tr><td>Sanitiser</td><td>chi-n-nguyen</td><td>Per-span edit engine, verification loop</td></tr>
+            <tr><td>Frontend</td><td>cmaii2411</td><td>Chrome extension, document review flow</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================= PART II ============================= -->
+
+    <div class="part-divider">
+      <div class="part-eyebrow">Part II</div>
+      <h1>Judge question bank</h1>
+      <p>Grouped by the angle a question is likely to come from. Numbered for quick reference during Q&amp;A — "check Q12" beats re-explaining live.</p>
+    </div>
+
+    <section id="qa-differentiation">
+      <div class="qa-cat">Product &amp; differentiation</div>
+
+      <div class="qa"><div class="qnum">Q1</div>
+        <div class="q">How is this different from existing DLP or AI-governance tools?</div>
+        <div class="a"><p>Existing tools catch categories — "this looks financial." We catch provenance — is this actually derived from <em>our</em> documents. That's tested against a public-domain baseline on the same topic, which is the part most tools skip and the part that makes the difference between a usable tool and one people turn off within a week.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q2</div>
+        <div class="q">What's the one thing you'd want a judge to remember?</div>
+        <div class="a"><p>Risk isn't a property of the text alone — it's content × destination × who's sending it. The same paragraph is fine internally, logged to a vetted vendor, and blocked to a personal account. Nobody else routes on all three.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q3</div>
+        <div class="q">Why block AND sanitize AND warn — why not just block?</div>
+        <div class="a"><p>Because block-everything is what already exists, and it's why people route around DLP tools. A blunt block loses the legitimate half of every flagged prompt. Sanitizing preserves the actual task — "help me structure this" survives losing the specific numbers; "why does this fail" doesn't, so we block that case honestly instead of returning garbage.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q4</div>
+        <div class="q">What was the hardest engineering problem?</div>
+        <div class="a"><p>Tuning the margin between an internal match and its best public counterpart. BGE cosine similarity runs hot — even unrelated sentences sit around 0.5–0.65 against any corpus — so an absolute threshold alone produces false positives on generic questions. The margin over a matched public-domain corpus is what actually discriminates, and we found that the hard way: an early attempt to let a high absolute score bypass the margin check let through exactly the false positives the margin exists to prevent.</p></div>
+      </div>
+    </section>
+
+    <section id="qa-technical">
+      <div class="qa-cat">Technical &amp; architecture</div>
+
+      <div class="qa"><div class="qnum">Q5</div>
+        <div class="q">Walk me through what happens to one prompt, end to end.</div>
+        <div class="a"><p>Secrets scan first (regex/entropy, always wins if critical). Then detection scores each sentence against the internal corpus, discounted by the best public match. The context stage checks whether this prompt completes a document already going out in pieces. Policy looks up sensitivity × destination × role in an ordered rule table. If the verdict is sanitize, the sanitiser edits each flagged span and re-checks the result against the same detector before returning it.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q6</div>
+        <div class="q">Why local embeddings instead of an API call to a hosted model?</div>
+        <div class="a"><p>Because the entire premise is that the prompt doesn't leave the machine until a decision is made. Calling out to score the very thing you're trying to keep in would defeat the product. Same reasoning for the rewrite model — Ollama, running locally, not a hosted API.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q7</div>
+        <div class="q">What's stored in the audit log?</div>
+        <div class="a"><p>A SHA-256 hash, a redacted preview, and the decision — never the raw prompt. Storing raw text would build exactly the exposure the product exists to prevent: one database holding every confidential thing anyone nearly leaked.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q8</div>
+        <div class="q">Why is the policy a YAML rule table instead of a model making the allow/block call?</div>
+        <div class="a"><p>Auditability. A security lead has to be able to read the rule table and predict the outcome without reading code or trusting a black box. That's also why it's sensitivity/destination/role, not a learned score — the inputs and the decision are both inspectable.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q9</div>
+        <div class="q">How does the context stage avoid becoming employee surveillance?</div>
+        <div class="a"><p>It only stores a reference into the corpus — document, chunk, score, destination, decision — never prompt text. It never infers role or team from behavior; teams are declared in policy, not learned, specifically so the person being judged can't train the system. And it only adds up evidence against documents the corpus already marks confidential — it doesn't decide what's sensitive on its own.</p></div>
+      </div>
+    </section>
+
+    <section id="qa-accuracy">
+      <div class="qa-cat">Accuracy &amp; evaluation</div>
+
+      <div class="qa"><div class="qnum">Q10</div>
+        <div class="q">What's your actual accuracy?</div>
+        <div class="a"><p>0.735 recall and 0.059 false-positive rate on hard negatives, on a 56-prompt seed set. We say "seed set" on purpose — those numbers move with corpus size and aren't stable until the set grows past 200, which is stated in our own threshold comments, not something we're hiding.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q11</div>
+        <div class="q">Why should I trust a false-positive number from a dataset you wrote yourselves?</div>
+        <div class="a"><p>You shouldn't trust it as a benchmark — it's a seed set, and we say so. What it demonstrates is methodology: every internal document has a matched, same-topic public counterpart written as a genuine hard negative, not filler, and the eval harness reports recall and FPR by class specifically so a 100%-recall detector that also flags every public-domain question can't hide behind an aggregate number.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q12</div>
+        <div class="q">What's the difference between recall on verbatim copies vs. paraphrases?</div>
+        <div class="a"><p>Verbatim recall is close to trivial — a keyword scanner could do almost as well. Paraphrase recall is the number that actually tests the thesis, since it requires telling "sounds like the field" apart from "is derived from this specific document." That's the number we report separately and the one we'd defend under questioning.</p></div>
+      </div>
+    </section>
+
+    <section id="qa-privacy">
+      <div class="qa-cat">Privacy &amp; ethics</div>
+
+      <div class="qa"><div class="qnum">Q13</div>
+        <div class="q">Doesn't this require reading every employee's private messages?</div>
+        <div class="a"><p>It reads prompts headed to an external AI tool from a company device — the same category of traffic a network DLP proxy already inspects. The design choice that limits the privacy cost is what's stored afterward: a hash and a redacted preview, never the text itself.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q14</div>
+        <div class="q">What happens if the tool itself is wrong and blocks something legitimate?</div>
+        <div class="a"><p>The message explains the specific rule that fired, in plain language, and the roadmap's next item is an approval workflow — request an exception, route to a reviewer — rather than a dead end. Today the honest gap is that there's no appeal path yet.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q15</div>
+        <div class="q">Could this be used to build a profile of what employees are trying to leak?</div>
+        <div class="a"><p>Deliberately not. The context stage is the closest thing to "history" in the system, and it's scoped narrowly on purpose: it only accumulates evidence against documents the corpus already knows are confidential, never infers intent, and stores no prompt text. It's built to catch a pattern in what already left, not to profile a person.</p></div>
+      </div>
+    </section>
+
+    <section id="qa-business">
+      <div class="qa-cat">Business &amp; market</div>
+
+      <div class="qa"><div class="qnum">Q16</div>
+        <div class="q">Who's the customer?</div>
+        <div class="a"><p>Any company with real IP and a workforce that already uses consumer AI tools day to day — research-heavy and IP-heavy industries first, where "this looks like our unpublished result" is a meaningfully different claim than "this looks scientific."</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q17</div>
+        <div class="q">How is this priced / what's the business model?</div>
+        <div class="a"><p>Out of scope for this build — the hackathon submission is the detection and policy engine, not a go-to-market plan. The honest answer: per-seat or per-corpus-size licensing is the obvious shape, but we haven't validated pricing.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q18</div>
+        <div class="q">What's the competitive landscape?</div>
+        <div class="a"><p>Category-level AI governance and DLP vendors exist, and they solve the credential/PII case well. None of the ones we looked at build a provenance index against the company's own documents with a public-domain hard-negative baseline — that's the specific gap this fills.</p></div>
+      </div>
+    </section>
+
+    <section id="qa-skeptical">
+      <div class="qa-cat">Skeptical / gotcha questions</div>
+
+      <div class="qa"><div class="qnum">Q19</div>
+        <div class="q">What stops someone from just disabling the extension?</div>
+        <div class="a"><p>Nothing, at the browser level — that's a policy/MDM enforcement problem, not a detection problem, and out of scope for this build. What we'd point to: the product's value is in what it catches when people aren't actively trying to evade it, which is the overwhelming majority of real leaks — accidental, not adversarial.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q20</div>
+        <div class="q">Couldn't someone just retype the content instead of pasting it, or take a screenshot?</div>
+        <div class="a"><p>Yes, and we say this plainly rather than pretend otherwise. Interception is deliberately shallow — paste and send, not every keystroke — because a tool invasive enough to catch manual retyping breaks the host page constantly and gets uninstalled. This stops accidental disclosure, not a determined insider.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q21</div>
+        <div class="q">Isn't 0.735 recall pretty low for a security tool?</div>
+        <div class="a"><p>On a 56-sample seed set, yes, and we'd rather report that honestly than inflate it. The other half of that story: false positives on public-domain hard negatives sit at 0.059, and for a tool whose failure mode is "gets turned off if it cries wolf," that trade-off is the one we optimized for deliberately, not an oversight.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q22</div>
+        <div class="q">What happens if Ollama isn't running — does the whole thing just fail?</div>
+        <div class="a"><p>No — it fails toward safety, not toward silently letting things through. If the rewrite model is unreachable, a sanitize decision downgrades to a block rather than sending an un-redacted prompt. The sanitiser's simpler edit strategies (redact, remove) don't need the model at all; only the smoother "generalise" rewrite does.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q23</div>
+        <div class="q">This is a synthetic demo company — how do you know it generalizes to a real one?</div>
+        <div class="a"><p>We don't claim it does yet, and the roadmap says so directly — real corpus ingestion from an actual document source is the next major piece of work, not built for this submission. What does generalize is the mechanism: provenance-vs-public-baseline scoring doesn't depend on the corpus being synthetic, only on having two matched corpora, which any company already has in its own documents plus the public web.</p></div>
+      </div>
+    </section>
+
+    <section id="qa-deploy">
+      <div class="qa-cat">Scale &amp; deployment</div>
+
+      <div class="qa"><div class="qnum">Q24</div>
+        <div class="q">How would this scale to a company with thousands of internal documents?</div>
+        <div class="a"><p>The provenance index is a vector similarity search — that scales with standard ANN indexing well past thousands of documents. The harder scaling problem, and the honest one, is corpus freshness: today it's a folder rebuilt on startup, and the roadmap's second item is incremental re-indexing from a real source like Drive or Confluence.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q25</div>
+        <div class="q">Does this only work in the browser?</div>
+        <div class="a"><p>Today, yes — the extension covers the major consumer AI web products. The roadmap's last item is a forward-proxy build for coverage beyond the browser, since the same detector service already runs independent of any one client.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q26</div>
+        <div class="q">What does IT actually have to install and maintain?</div>
+        <div class="a"><p>A local detection service (binds to 127.0.0.1 only — never accepts remote traffic), the browser extension, and periodically refreshing the internal/public corpus. No data leaves the employee's machine to a vendor-hosted backend as part of normal operation.</p></div>
+      </div>
+
+      <div class="qa"><div class="qnum">Q27</div>
+        <div class="q">What's the latency cost to the user?</div>
+        <div class="a"><p>Detection alone runs in tens of milliseconds locally. The rewrite step, when it's needed, is the slower part — bounded by the local model's response time, with a hard timeout so a slow model degrades to a safe block rather than hanging the request.</p></div>
+      </div>
+    </section>
+
+    <footer>
+      NDAi — a local semantic firewall for AI prompts. Prepared for hackathon submission. This document is a living reference; update it as the product changes.
+    </footer>
+  </main>
+</div>

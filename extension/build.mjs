@@ -6,7 +6,13 @@ import * as esbuild from "esbuild";
 const serve = process.argv.includes("--serve");
 const watch = serve || process.argv.includes("--watch");
 
-const common = { outdir: "dist", bundle: true, logLevel: "info", sourcemap: watch ? "inline" : false };
+const common = {
+  outdir: "dist", bundle: true, logLevel: "info", sourcemap: watch ? "inline" : false,
+  // NDAI_API_URL=https://your-host npm run build - for a standalone deploy
+  // of extension/preview/ pointed at a hosted detector (see detector_client.ts).
+  // Unset, this defaults to the local detector, same as every other flow.
+  define: { __NDAI_API_URL__: JSON.stringify(process.env.NDAI_API_URL || "http://127.0.0.1:8000") },
+};
 
 // Content scripts and the service worker can't be ES modules.
 const classic = await esbuild.context({
