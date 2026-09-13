@@ -21,9 +21,11 @@ log = logging.getLogger("ndai")
 
 app = FastAPI(title="ndAI", version="0.1.0")
 
-# NDAI_EXTRA_ORIGINS: comma-separated origins to allow beyond the defaults -
-# for the deployed standalone preview page. Set on the hosted instance only;
-# a local install needs no change here.
+# NDAI_EXTRA_ORIGINS: comma-separated origins to allow beyond the defaults,
+# for anything not worth committing (a one-off local test, a teammate's own
+# preview deploy). Doesn't survive a redeploy on Cloud Run reliably - console
+# env var edits get overwritten by the next source-triggered auto-deploy, so
+# the real preview URL is committed below instead, not just set here.
 _extra_origins = [o.strip() for o in os.getenv("NDAI_EXTRA_ORIGINS", "").split(",") if o.strip()]
 
 app.add_middleware(
@@ -31,6 +33,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8787", "http://127.0.0.1:8787",  # extension/preview dev server
         "https://chatgpt.com", "https://claude.ai", "https://gemini.google.com",
+        "https://ndai-preview1.vercel.app",  # deployed standalone preview page
         *_extra_origins,
     ],
     allow_origin_regex=r"^chrome-extension://.*$",
