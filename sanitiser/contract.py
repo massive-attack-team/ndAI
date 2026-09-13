@@ -17,7 +17,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Literal
 
-Confidence = Literal["verbatim", "paraphrase", "weak"]
+Confidence = Literal["verbatim", "paraphrase", "weak", "cumulative"]
 Strategy = Literal["redact", "generalise", "remove", "block"]
 
 

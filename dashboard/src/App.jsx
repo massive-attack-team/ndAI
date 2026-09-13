@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ContextGraph from "./ContextGraph.jsx";
 
 const VERDICT = {
   allow: { label: "Allowed", color: "var(--color-allow)" },
@@ -18,6 +19,7 @@ export default function App() {
   const [stats, setStats] = useState(null);
   const [health, setHealth] = useState(undefined);
   const [selectedId, setSelectedId] = useState(null);
+  const [graph, setGraph] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -31,6 +33,10 @@ export default function App() {
       } catch {
         if (alive) setHealth(null);
       }
+      // Separate so an older service without /graph still shows everything else.
+      api("/graph")
+        .then((g) => alive && setGraph(g))
+        .catch(() => alive && setGraph(null));
     };
     poll();
     const t = setInterval(poll, 2000);
@@ -52,6 +58,7 @@ export default function App() {
         <Stream events={events} selected={selected} onSelect={setSelectedId} />
         <Detail event={selected} />
       </div>
+      <ContextGraph graph={graph} />
     </div>
   );
 }
@@ -150,6 +157,7 @@ function Detail({ event }) {
   const prov = event.findings?.find((f) => f.kind === "provenance");
   const secrets = event.findings?.filter((f) => f.kind === "secret") ?? [];
   const cat = event.findings?.find((f) => f.kind === "category");
+  const ctx = event.findings?.find((f) => f.kind === "context");
 
   return (
     <section className="lg:sticky lg:top-10 lg:self-start">
@@ -169,7 +177,9 @@ function Detail({ event }) {
         <Compare
           term="ndAI"
           detail={
-            prov
+            ctx
+              ? `${ctx.chunks_out} of ${ctx.chunk_total} sections of ${ctx.label} sent over ${ctx.prompts} prompts`
+              : prov
               ? `${Math.round(prov.score * 100)}% match to ${prov.label}, ${Math.round(
                   prov.public_score * 100
                 )}% to public sources`
@@ -177,9 +187,18 @@ function Detail({ event }) {
               ? "Credential found"
               : "No internal provenance"
           }
-          weak={!prov && !secrets.length}
+          weak={!prov && !ctx && !secrets.length}
         />
       </dl>
+
+      {ctx && (
+        <p className="mt-4 max-w-[52ch] border-l-2 border-block bg-card px-4 py-3 text-sm">
+          No single prompt was enough. Together with what{" "}
+          {ctx.scope === "team" ? "their team" : "this person"} already sent, this one would have put{" "}
+          {ctx.chunks_out} of {ctx.chunk_total} sections of{" "}
+          <span className="font-mono text-xs">{ctx.label}</span> outside the company.
+        </p>
+      )}
 
       {prov && (
         <div className="mt-6">

@@ -26,6 +26,20 @@ POLICY: dict[tuple[int, Confidence], str] = {
     (1, "verbatim"):   "generalise",   # internal - mildest tier that reaches here
     (1, "paraphrase"): "generalise",
     (1, "weak"):       "generalise",
+    # cumulative: the context stage (CONTRACT.md #9) only fires this once
+    # real chunks from a real document have actually added up across
+    # several prompts - confirmed evidence, not a guess, so it's treated at
+    # least as seriously as verbatim. Not hard "block" like (3, verbatim)
+    # though: policy.yaml's "pieced together across prompts" rule already
+    # routes tier 2 AND tier 3 cumulative findings to sanitize first (see
+    # CONTRACT.md #9's review note) - this table shouldn't second-guess that
+    # by blocking outright. If redact still leaks, escalation (below) and
+    # verify.py's re-detection loop fail it closed to block regardless.
+    (3, "cumulative"): "redact",
+    (2, "cumulative"): "redact",
+    (1, "cumulative"): "generalise",   # never actually reaches here - policy
+                                        # allows tier 1 outright - kept for
+                                        # table completeness.
 }
 
 # Applied when a pass fails verification: try something blunter.
@@ -39,26 +53,14 @@ REASONS = {
     "redact":     "Matched internal {doc_type} ({source}): specific detail removed",
     "generalise": "Matched internal {doc_type} ({source}): rewritten at a general level",
     "remove":     "Rewriting still matched internal {doc_type}: sentence dropped",
-    "reasoning":  "The confidential content is the thing being reasoned about, so no rewrite preserves the task. Use the internal model.",
 }
-
-# Sentences where the confidential content is the object of reasoning, not
-# background context: "verify this proof" needs the actual numbers to be
-# useful. A rewrite that removes them produces an unusable prompt while
-# looking safe, so these always block instead of generalising.
-REASONING_MARKERS = (
-    "is this proof", "verify", "prove", "debug this", "why does this fail",
-    "check my derivation", "is this correct", "find the bug", "review this result",
-)
-
-
-def is_reasoning_task(finding: Finding) -> bool:
-    return any(marker in finding.span.text.lower() for marker in REASONING_MARKERS)
 
 
 def decide(finding: Finding, escalations: int = 0) -> str:
-    if is_reasoning_task(finding):
-        return "block"
+    # Reasoning-task prompts ("verify this proof") are caught whole-prompt,
+    # before any finding reaches this function - see sanitiser/service.py,
+    # which checks detector/rewrite.py's REASONING_MARKERS (one shared
+    # constant, not a copy that can drift) and blocks outright.
     base = POLICY.get((finding.tier, finding.confidence), "generalise")
     for _ in range(escalations):
         base = ESCALATION.get(base, "block")

@@ -20,7 +20,7 @@ from typing import Iterable, List
 import numpy as np
 import yaml
 
-from . import calibration, config
+from . import config
 from .embeddings import get_embedder
 
 log = logging.getLogger("ndai.provenance")
@@ -99,6 +99,7 @@ class ProvenanceHit:
     sensitivity: int | None = None
     confidence: str = "paraphrase"   # "verbatim" | "paraphrase", see CONTRACT.md #4
     span: tuple[int, int] = (0, 0)
+    chunk: int = 0                   # position of the matched chunk within `doc`
 
 
 class Index:
@@ -148,7 +149,16 @@ class ProvenanceDetector:
         self.internal.build(config.INTERNAL_CORPUS)
         self.public.build(config.PUBLIC_CORPUS)
 
-    def check_all(self, text: str) -> list[ProvenanceHit]:
+    def chunk_totals(self) -> dict[str, tuple[int, str | None, int | None]]:
+        """Per internal doc: (number of chunks, type, tier). The denominator for
+        how much of a document has left the machine (see detector/context.py)."""
+        totals: dict[str, tuple[int, str | None, int | None]] = {}
+        for c in self.internal.chunks:
+            n, _, _ = totals.get(c.doc, (0, None, None))
+            totals[c.doc] = (n + 1, c.chunk_type, c.tier)
+        return totals
+
+    def check_all(self, text: str, margin: float = config.PUBLIC_MARGIN) -> list[ProvenanceHit]:
         """Score every sentence independently and return every eligible hit.
 
         Sentence granularity matters: a 500-word prompt with two leaked lines
@@ -156,6 +166,9 @@ class ProvenanceDetector:
         `check()`, this keeps every sentence that clears threshold, not just
         the worst one - a prompt can carry more than one finding (see
         CONTRACT.md #2).
+
+        `margin` defaults to PUBLIC_MARGIN. detection.py passes the lower
+        CONTEXT_MARGIN to also collect near misses for the context graph.
         """
         spans = split_sentences_with_spans(text)
         sentences = [s for s, _, _ in spans]
@@ -172,24 +185,19 @@ class ProvenanceDetector:
         # against internal docs, and sometimes clear it even higher against
         # public ones (negative margin) - an absolute bypass let those through
         # as false positives. The margin is what's actually discriminating
-        # here, verbatim or not; keep it required for every hit.
-        #
-        # The margin itself isn't one flat constant anymore: detector/
-        # calibration.py nudges it per document type based on this team's
-        # own audit history (CONTRACT.md #3's 3 in-scope types), computed
-        # once here rather than once per sentence. A type with too little
-        # history, or a doc outside the 3 in-scope types (chunk_type=None),
-        # falls back to the unadjusted config.PUBLIC_MARGIN.
-        margin_by_type = calibration.margin_by_type()
+        # here, verbatim or not; keep it required for every hit - `margin`
+        # just lets detection.py ask for a lower bar (CONTEXT_MARGIN) to
+        # collect near misses, not skip the check. detector/calibration.py's
+        # per-type adjustment is applied one layer up, in detection.py, when
+        # it decides which of these hits count as a finding versus a near
+        # miss - this method stays a single, uncalibrated floor.
+        eligible = (int_scores >= config.PROVENANCE_HIT) & (margins >= margin)
 
         hits = []
-        for i, int_score in enumerate(int_scores):
-            if not (self.internal.chunks and int_score >= config.PROVENANCE_HIT):
+        for i, ok in enumerate(eligible):
+            if not ok:
                 continue
             chunk = self.internal.chunks[int(int_pos[i])]
-            threshold = margin_by_type.get(chunk.chunk_type, config.PUBLIC_MARGIN)
-            if margins[i] < threshold:
-                continue
             _, start, end = spans[i]
             verbatim = float(int_scores[i]) >= config.PROVENANCE_STRONG
             hits.append(ProvenanceHit(
@@ -203,6 +211,7 @@ class ProvenanceDetector:
                 sensitivity=chunk.tier,
                 confidence="verbatim" if verbatim else "paraphrase",
                 span=(start, end),
+                chunk=chunk.idx,
             ))
         return hits
 

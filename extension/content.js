@@ -52,6 +52,8 @@
         .map((f) => {
           if (f.kind === "provenance")
             return `<li><span class="ndai-score">${Math.round(f.score * 100)}%</span> match to <code>${f.label}</code>${f.verbatim ? " (near verbatim)" : ""}</li>`;
+          if (f.kind === "context")
+            return `<li><span class="ndai-flag">Pieced together</span> ${f.chunks_out} of ${f.chunk_total} sections of <code>${f.label}</code> across ${f.prompts} prompts${f.scope === "team" ? " from your team" : ""}</li>`;
           if (f.kind === "secret")
             return `<li><span class="ndai-flag">Credential</span> ${f.label} <code>${f.preview}</code></li>`;
           return `<li>Reads as ${String(f.label).replace(/_/g, " ")}</li>`;

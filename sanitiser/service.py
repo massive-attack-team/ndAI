@@ -20,6 +20,7 @@ from .contract import Edit, Finding, SanitisationResult, apply_edits, apply_edit
 
 from detector.detection import detect
 from detector.embeddings import get_embedder
+from detector.rewrite import REASONING_MARKERS
 
 
 def _embed(text: str):
@@ -50,6 +51,24 @@ def sanitise(text: str, detection_result: Any = None) -> SanitisationResult:
             original_text=text,
             sanitised_text=text,
             latency_ms=int((time.perf_counter() - t0) * 1000),
+        )
+
+    # Ported from detector/rewrite.py's _unsafe_to_rewrite (shared constant,
+    # not a copy that can drift). Some prompts have no safe edit at any span:
+    # the sensitive content is the thing being reasoned about ("verify this
+    # proof", "why does this fail"), not background the task can survive
+    # losing. No per-span strategy fixes that, so don't try - block outright
+    # and say why, same message the old whole-prompt rewriter gave.
+    if any(marker in text.lower() for marker in REASONING_MARKERS):
+        return SanitisationResult(
+            action="block",
+            original_text=text,
+            sanitised_text=text,
+            latency_ms=int((time.perf_counter() - t0) * 1000),
+            reason=(
+                "The confidential content is the thing you want reasoned about, so no "
+                "rewrite preserves the task. Use the internal model."
+            ),
         )
 
     candidate, edits, passes, residual, before, after = verify.run_loop(
@@ -99,8 +118,6 @@ def reapply(original: str, edits_json: list[dict]) -> str:
 
 
 def _block_reason(findings: list[Finding], passes: int, residual: int) -> str:
-    if any(planner.is_reasoning_task(f) for f in findings):
-        return planner.REASONS["reasoning"]
     if passes and residual:
         return (
             f"Rewriting was attempted but {residual} sentence(s) still matched internal "

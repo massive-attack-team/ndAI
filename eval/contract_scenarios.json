@@ -1,0 +1,577 @@
+{
+  "about": "Acceptance scenarios for CONTRACT.md; run python -m eval.check_contract. Detection side: detect(text) must flag a sentence containing each expect.findings[].contains with that type, sensitivity, confidence and matched_source (omitted keys are not checked), must not flag any sentence containing an expect.no_findings_on string, and must return no findings when expect.findings is empty. Response side: 'detection' is a fixture DetectionResult in the CONTRACT.md #2 shape, with real bge-small-en-v1.5 scores for the intended sentence and source document, to build policy against with 'context'. Several scores sit below today's thresholds; that gap is detection work. Demo acceptance tests, not the metric: never tune thresholds on these.",
+  "scenarios": [
+    {
+      "name": "research-tier3-paraphrase",
+      "text": "Our lead molecule shrank tumours by a bit under half compared with vehicle in the second group, but we see liver problems past twelve milligrams per kilo. Help me write the results section.",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "researcher"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "shrank tumours",
+            "type": "research_report",
+            "sensitivity": 3,
+            "confidence": "paraphrase",
+            "matched_source": "research_report/experiment-results-q3.md"
+          }
+        ],
+        "no_findings_on": [
+          "Help me write the results section."
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "research_report",
+            "sensitivity": 3,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              154
+            ],
+            "evidence": {
+              "matched_source": "research_report/experiment-results-q3.md",
+              "score": 0.631,
+              "public_baseline_score": 0.579,
+              "margin": 0.052,
+              "excerpt": "of normal, and the effect was dose dependent rather than idiosyncratic. This gives us a narrow therapeutic window and it is the finding most likely to sink the programme. The pharm"
+            }
+          }
+        ],
+        "overall_sensitivity": 3,
+        "types_present": [
+          "research_report"
+        ]
+      }
+    },
+    {
+      "name": "research-tier3-verbatim",
+      "text": "In the second cohort, KB-2291 reduced tumour volume by 47 percent relative to vehicle control at day 21. Help me turn this into a results paragraph.",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "researcher"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "KB-2291 reduced tumour volume",
+            "type": "research_report",
+            "sensitivity": 3,
+            "confidence": "verbatim",
+            "matched_source": "research_report/experiment-results-q3.md"
+          }
+        ],
+        "no_findings_on": [
+          "Help me turn this into a results paragraph."
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "research_report",
+            "sensitivity": 3,
+            "confidence": "verbatim",
+            "span": [
+              0,
+              104
+            ],
+            "evidence": {
+              "matched_source": "research_report/experiment-results-q3.md",
+              "score": 0.764,
+              "public_baseline_score": 0.689,
+              "margin": 0.075,
+              "excerpt": "# KB-2291 Preclinical Summary (RESTRICTED - UNPUBLISHED) In the second cohort, KB-2291 reduced tumour volume by 47 percent relative to vehicle control at day 21, which is the stron"
+            }
+          }
+        ],
+        "overall_sensitivity": 3,
+        "types_present": [
+          "research_report"
+        ]
+      }
+    },
+    {
+      "name": "research-tier2-paraphrase",
+      "text": "In the fourth cohort we switched to three days on and two days off, and liver enzymes still look flat at day 7 in that arm. How should I word a cautious update for the programme team?",
+      "context": {
+        "destination": "claude.ai",
+        "role": "researcher"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "three days on and two days off",
+            "type": "research_report",
+            "sensitivity": 2,
+            "confidence": "paraphrase",
+            "matched_source": "research_report/cohort-four-interim.md"
+          }
+        ],
+        "no_findings_on": [
+          "How should I word a cautious update"
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "research_report",
+            "sensitivity": 2,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              123
+            ],
+            "evidence": {
+              "matched_source": "research_report/cohort-four-interim.md",
+              "score": 0.709,
+              "public_baseline_score": 0.593,
+              "margin": 0.116,
+              "excerpt": "off, versus the continuous dosing used in cohorts one through three. Too early for efficacy readout. First bloods are back and ALT looks flat through day 7 in the intermittent arm,"
+            }
+          }
+        ],
+        "overall_sensitivity": 2,
+        "types_present": [
+          "research_report"
+        ]
+      }
+    },
+    {
+      "name": "research-tier1-paraphrase",
+      "text": "Our standing protocol uses eight animals per dose arm and draws ALT and AST at days 7, 14 and 21 instead of only at the end. Can you turn that into a protocol table?",
+      "context": {
+        "destination": "localhost",
+        "role": "contractor"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "eight animals per dose arm",
+            "type": "research_report",
+            "sensitivity": 1,
+            "confidence": "paraphrase",
+            "matched_source": "research_report/assay-methodology-notes.md"
+          }
+        ],
+        "no_findings_on": [
+          "Can you turn that into a protocol table?"
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "research_report",
+            "sensitivity": 1,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              124
+            ],
+            "evidence": {
+              "matched_source": "research_report/assay-methodology-notes.md",
+              "score": 0.702,
+              "public_baseline_score": 0.586,
+              "margin": 0.116,
+              "excerpt": "# Cohort Study Methodology Notes (Internal) Standard protocol for KB-series compounds: eight animals per dose arm, vehicle control plus three ascending doses, tumour volume measure"
+            }
+          }
+        ],
+        "overall_sensitivity": 1,
+        "types_present": [
+          "research_report"
+        ]
+      }
+    },
+    {
+      "name": "financial-tier3-acquisition",
+      "text": "We are thinking about buying a microfluidics company for just under four hundred million, mostly cash with some stock. What should the board be asking?",
+      "context": {
+        "destination": "gemini.google.com",
+        "role": "default"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "buying a microfluidics company",
+            "type": "financial_plan",
+            "sensitivity": 3,
+            "confidence": "paraphrase",
+            "matched_source": "financial_plan/acquisition-memo.md"
+          }
+        ],
+        "no_findings_on": [
+          "What should the board be asking?"
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "financial_plan",
+            "sensitivity": 3,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              118
+            ],
+            "evidence": {
+              "matched_source": "financial_plan/acquisition-memo.md",
+              "score": 0.723,
+              "public_baseline_score": 0.629,
+              "margin": 0.094,
+              "excerpt": "# Project Nightjar - Board Memo (RESTRICTED) Recommendation: acquire Helix Assay Systems for a headline figure of 384 million dollars, structured as 60 percent cash and 40 percent "
+            }
+          }
+        ],
+        "overall_sensitivity": 3,
+        "types_present": [
+          "financial_plan"
+        ]
+      }
+    },
+    {
+      "name": "financial-tier3-raise",
+      "text": "The lead investor wants a 410 million pre-money for our 70 million raise, and we are resisting their push for a participating preference. Draft talking points for the negotiation.",
+      "context": {
+        "destination": "console.anthropic.com",
+        "role": "default"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "410 million pre-money",
+            "type": "financial_plan",
+            "sensitivity": 3,
+            "confidence": "paraphrase",
+            "matched_source": "financial_plan/series-c-terms.md"
+          }
+        ],
+        "no_findings_on": [
+          "Draft talking points for the negotiation."
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "financial_plan",
+            "sensitivity": 3,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              137
+            ],
+            "evidence": {
+              "matched_source": "financial_plan/series-c-terms.md",
+              "score": 0.694,
+              "public_baseline_score": 0.579,
+              "margin": 0.115,
+              "excerpt": "# Series C Term Sheet Discussion (RESTRICTED - deal team only) Lead investor has proposed a pre-money valuation of 410 million dollars for a 70 million dollar raise, with a board s"
+            }
+          }
+        ],
+        "overall_sensitivity": 3,
+        "types_present": [
+          "financial_plan"
+        ]
+      }
+    },
+    {
+      "name": "financial-tier1-budget",
+      "text": "Engineering budget for Q4 splits about 60 percent platform and 40 percent hardware, the same as last quarter. Turn this into one slide bullet.",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "engineer"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "60 percent platform",
+            "type": "financial_plan",
+            "sensitivity": 1,
+            "confidence": "paraphrase",
+            "matched_source": "financial_plan/q4-budget-allocation.md"
+          }
+        ],
+        "no_findings_on": [
+          "Turn this into one slide bullet."
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "financial_plan",
+            "sensitivity": 1,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              109
+            ],
+            "evidence": {
+              "matched_source": "financial_plan/q4-budget-allocation.md",
+              "score": 0.748,
+              "public_baseline_score": 0.514,
+              "margin": 0.234,
+              "excerpt": "# Q4 Engineering Budget Allocation (Internal) Engineering headcount budget for Q4 splits roughly 60 percent platform (compound registry, ingest, auth) and 40 percent hardware (auto"
+            }
+          }
+        ],
+        "overall_sensitivity": 1,
+        "types_present": [
+          "financial_plan"
+        ]
+      }
+    },
+    {
+      "name": "strategic-tier3-pricing",
+      "text": "Next year we want to stop charging per seat and start charging per plate when the autoloader goes generally available. Draft the internal note for the leadership team.",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "default"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "charging per plate",
+            "type": "strategic_plan",
+            "sensitivity": 3,
+            "confidence": "paraphrase",
+            "matched_source": "strategic_plan/roadmap-2027.md"
+          }
+        ],
+        "no_findings_on": [
+          "Draft the internal note for the leadership team."
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "strategic_plan",
+            "sensitivity": 3,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              118
+            ],
+            "evidence": {
+              "matched_source": "strategic_plan/roadmap-2027.md",
+              "score": 0.679,
+              "public_baseline_score": 0.524,
+              "margin": 0.155,
+              "excerpt": "Q3. Retire the legacy curve fitting service. Every customer still on the old endpoint must be migrated first; two large accounts have not started. Q4. Announce the autoloader publi"
+            }
+          }
+        ],
+        "overall_sensitivity": 3,
+        "types_present": [
+          "strategic_plan"
+        ]
+      }
+    },
+    {
+      "name": "strategic-tier2-reorg",
+      "text": "We are splitting the commercial team into an enterprise pod and a self-serve pod, and self-serve will report to product instead of sales. Help me plan how to announce it.",
+      "context": {
+        "destination": "claude.ai",
+        "role": "default"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "enterprise pod and a self-serve pod",
+            "type": "strategic_plan",
+            "sensitivity": 2,
+            "confidence": "paraphrase",
+            "matched_source": "strategic_plan/commercial-reorg.md"
+          }
+        ],
+        "no_findings_on": [
+          "Help me plan how to announce it."
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "strategic_plan",
+            "sensitivity": 2,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              137
+            ],
+            "evidence": {
+              "matched_source": "strategic_plan/commercial-reorg.md",
+              "score": 0.785,
+              "public_baseline_score": 0.656,
+              "margin": 0.129,
+              "excerpt": "# Commercial Team Restructure (CONFIDENTIAL - not yet announced to staff) We are splitting the commercial team into two pods: enterprise accounts (design partners running the autol"
+            }
+          }
+        ],
+        "overall_sensitivity": 2,
+        "types_present": [
+          "strategic_plan"
+        ]
+      }
+    },
+    {
+      "name": "strategic-tier1-cadence",
+      "text": "Every quarter each team submits priorities two weeks before the planning offsite, and leads rank their own asks first. Summarise this for new starters.",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "contractor"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "two weeks before the planning offsite",
+            "type": "strategic_plan",
+            "sensitivity": 1,
+            "confidence": "paraphrase",
+            "matched_source": "strategic_plan/planning-cadence.md"
+          }
+        ],
+        "no_findings_on": [
+          "Summarise this for new starters."
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "strategic_plan",
+            "sensitivity": 1,
+            "confidence": "paraphrase",
+            "span": [
+              0,
+              118
+            ],
+            "evidence": {
+              "matched_source": "strategic_plan/planning-cadence.md",
+              "score": 0.75,
+              "public_baseline_score": 0.502,
+              "margin": 0.248,
+              "excerpt": "# How We Run Quarterly Planning (Internal) Each quarter, engineering, product and commercial submit priorities two weeks before the planning offsite. Leads rank their own team's as"
+            }
+          }
+        ],
+        "overall_sensitivity": 1,
+        "types_present": [
+          "strategic_plan"
+        ]
+      }
+    },
+    {
+      "name": "strategic-weak-market-entry",
+      "text": "We plan to enter the Japanese market next spring, ahead of our main competitor and before any announcement. Draft a one-page internal memo on the plan.",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "default"
+      },
+      "expect": {
+        "findings": [
+          {
+            "contains": "enter the Japanese market",
+            "type": "strategic_plan",
+            "confidence": "weak"
+          }
+        ],
+        "no_findings_on": [
+          "Draft a one-page internal memo on the plan."
+        ]
+      },
+      "detection": {
+        "findings": [
+          {
+            "type": "strategic_plan",
+            "sensitivity": 2,
+            "confidence": "weak",
+            "span": [
+              0,
+              107
+            ],
+            "evidence": {
+              "matched_source": null,
+              "score": 0.603,
+              "public_baseline_score": null,
+              "margin": null,
+              "excerpt": "We plan to enter the Japanese market next spring, ahead of our main competitor and before any announcement."
+            }
+          }
+        ],
+        "overall_sensitivity": 2,
+        "types_present": [
+          "strategic_plan"
+        ]
+      }
+    },
+    {
+      "name": "public-funding-question",
+      "text": "What do Series C rounds for lab software companies usually look like in terms of valuation range and board seats?",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "default"
+      },
+      "expect": {
+        "findings": [],
+        "no_findings_on": []
+      },
+      "detection": {
+        "findings": [],
+        "overall_sensitivity": 0,
+        "types_present": []
+      }
+    },
+    {
+      "name": "public-dosing-question",
+      "text": "Why do oncology programmes switch to intermittent dosing when liver toxicity limits the dose?",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "researcher"
+      },
+      "expect": {
+        "findings": [],
+        "no_findings_on": []
+      },
+      "detection": {
+        "findings": [],
+        "overall_sensitivity": 0,
+        "types_present": []
+      }
+    },
+    {
+      "name": "public-sales-question",
+      "text": "Why do lab software vendors set up a separate enterprise sales team once they have a few large accounts?",
+      "context": {
+        "destination": "gemini.google.com",
+        "role": "default"
+      },
+      "expect": {
+        "findings": [],
+        "no_findings_on": []
+      },
+      "detection": {
+        "findings": [],
+        "overall_sensitivity": 0,
+        "types_present": []
+      }
+    },
+    {
+      "name": "public-zfactor-question",
+      "text": "What is a Z-factor and why is 0.5 the usual cutoff for a screening assay?",
+      "context": {
+        "destination": "chatgpt.com",
+        "role": "researcher"
+      },
+      "expect": {
+        "findings": [],
+        "no_findings_on": []
+      },
+      "detection": {
+        "findings": [],
+        "overall_sensitivity": 0,
+        "types_present": []
+      }
+    }
+  ]
+}

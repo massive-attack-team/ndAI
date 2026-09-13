@@ -4,7 +4,7 @@ Run once before the demo:  python demo_seed.py
 """
 from __future__ import annotations
 
-from detector import audit, pipeline
+from detector import audit, context, pipeline
 
 SCENARIOS = [
     # public_domain -> allow. Same field, no internal match.
@@ -43,11 +43,36 @@ SCENARIOS = [
     ("We are splitting the commercial team into two pods: enterprise accounts running the "
      "autoloader, and self-serve registry API customers on the per-seat plan. Tighten this.",
      "localhost", "dana@kestrelbio.com", "default"),
+
+    # Context stage: a separate copy of the acquisition memo, pieced together
+    # a fragment at a time. Each piece alone is a near miss (too reworded to
+    # clear PUBLIC_MARGIN on its own) - allow. The pieces add up: first across
+    # two prompts from one person, then a second person on the same finance
+    # team completes it further. Both land on public_consumer, so the third
+    # prompt should trip "pieced together across prompts" -> sanitize (or
+    # block, if the rewrite model isn't reachable).
+    ("We are thinking about buying a microfluidics company for just under four hundred million, "
+     "mostly cash with some stock. What should the board be asking?",
+     "gemini.google.com", "dana@kestrelbio.com", "default"),
+    ("The company we want to buy is in a legal fight with an ex-contractor over cartridge tooling "
+     "and our lawyers call the exposure moderate. How worried should we be?",
+     "gemini.google.com", "dana@kestrelbio.com", "default"),
+    ("Some of the purchase price will sit in escrow until the patent dispute is settled. What is a "
+     "normal escrow percentage?",
+     "chatgpt.com", "alex@kestrelbio.com", "default"),
+
+    # A lone near miss on a different document (research_report) - too small
+    # and too reworded to be a finding, and with nothing else to add up
+    # against, should stay allow.
+    ("In the second cohort, KB-2291 reduced tumour volume by 47 percent relative to vehicle control "
+     "at day 21.",
+     "chatgpt.com", "priya@kestrelbio.com", "researcher"),
 ]
 
 
 def main() -> None:
     audit.init()
+    context.init()
     state = pipeline.warm_up()
     print(f"backend={state['embed_backend']} semantic={state['semantic']} "
           f"rewrite={state['rewrite_model_up']}\n")

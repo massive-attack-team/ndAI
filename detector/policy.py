@@ -31,7 +31,13 @@ class PolicyEngine:
         data: dict[str, Any] = yaml.safe_load(self.path.read_text(encoding="utf-8"))
         self.destinations = data.get("destinations", {})
         self.roles = data.get("roles", {})
+        self.teams = data.get("teams", {})
         self.rules = data.get("rules", [])
+        self._user_to_team = {
+            user.lower(): team
+            for team, users in self.teams.items()
+            for user in users or []
+        }
         self._host_to_class = {
             host.lower(): klass
             for klass, hosts in self.destinations.items()
@@ -50,6 +56,10 @@ class PolicyEngine:
 
     def clearance(self, role: str) -> int:
         return self.roles.get(role, self.roles.get("default", {"clearance": 2}))["clearance"]
+
+    def team_of(self, user: str) -> str | None:
+        """Declared team, or None. Never inferred from what someone sends."""
+        return self._user_to_team.get((user or "").lower())
 
     def evaluate(self, *, sensitivity: int, destination_class: str, role: str,
                  has_critical_secret: bool, finding_type: str | None = None,
