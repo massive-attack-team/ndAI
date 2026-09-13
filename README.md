@@ -1,6 +1,4 @@
-# ndAI
-
-**The NDA your AI assistant actually reads.**
+# ndAI (NDA + AI)
 
 ndAI checks what an employee pastes, types or uploads into an AI tool
 (ChatGPT, Claude, Gemini) before it is sent. It recognises the company's own
