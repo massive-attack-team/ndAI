@@ -54,6 +54,15 @@ def _unsafe_to_rewrite(original: str) -> bool:
 
 
 def rewrite(original: str) -> RewriteResult:
+    """Whole-prompt rewrite. Superseded on the live "sanitize" path by
+    sanitiser.service.sanitise() (per-span edits + a re-detection
+    verification loop) - kept here, still tested, as the simpler baseline
+    and because health() below still backs pipeline.warm_up()'s status
+    check. The REASONING_MARKERS guard below has no equivalent yet in the
+    sanitiser package: worth porting (e.g. force "block" instead of
+    "generalise" when a finding's sentence matches a reasoning marker)
+    before relying on it for prompts that ask to verify/debug/prove
+    something."""
     if _unsafe_to_rewrite(original):
         return RewriteResult(
             None, False,
@@ -94,3 +103,26 @@ def health() -> bool:
             return resp.status == 200
     except Exception:
         return False
+
+
+def answer_locally(prompt: str) -> str:
+    """Block path: run the UNTOUCHED prompt against the local model so the
+    user still gets an answer without anything crossing the trust boundary.
+    Makes block a destination rather than a dead end."""
+    payload = {
+        "model": config.OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"temperature": 0.2, "num_predict": 600},
+    }
+    req = urllib.request.Request(
+        f"{config.OLLAMA_URL}/api/generate",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            body = json.loads(resp.read())
+        return (body.get("response") or "").strip() or "Local model returned nothing."
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return f"Local model unavailable: {exc}"
