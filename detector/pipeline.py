@@ -90,7 +90,14 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
             types_present=sorted({f.type for f in combined}),
         )
 
+    shown_context: set[str] = set()
     for f in result.findings:
+        if f.confidence == "cumulative":
+            # One cumulative Finding per contributing sentence, so the
+            # sanitiser edits all of them; the user sees one line per document.
+            if f.evidence.matched_source in shown_context:
+                continue
+            shown_context.add(f.evidence.matched_source)
         findings.append(_finding_dict(f, signal))
 
     # A weak finding is a guess about the topic, so it counts one tier lower
@@ -115,6 +122,7 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
 
     rewritten, note = None, ""
     sanitiser_meta: dict[str, Any] = {}
+    edited_spans: list[tuple[int, int]] = []
     if decision.action == "sanitize":
         # Feature 2 (sanitiser/): per-span edits, verified by re-running
         # detect() on the candidate and escalating strategy up to 2 passes,
@@ -136,6 +144,7 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
                 for e in san.edits
             ],
         }
+        edited_spans = [(e.span.start, e.span.end) for e in san.edits if e.accepted]
         if san.action == "block":
             decision = policy.Decision("block", decision.rule, san.reason or decision.message)
         else:
@@ -171,6 +180,7 @@ def inspect(text: str, *, destination: str, user: str = "unknown",
         context.record(
             event_id=inspection.event_id, user=user, team=team, destination=destination,
             destination_class=dest_class, action=decision.action, matches=matches, signal=signal,
+            edited_spans=edited_spans,
         )
     return inspection
 

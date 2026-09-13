@@ -18,7 +18,8 @@ from . import planner, strategies, verify
 from .adapters import to_findings
 from .contract import Edit, Finding, SanitisationResult, apply_edits, apply_edits_with_map
 
-from detector.detection import detect
+from detector.detection import DetectionResult, Evidence, detect, detect_with_near_misses
+from detector.detection import Finding as DetectionFinding
 from detector.embeddings import get_embedder
 from detector.rewrite import REASONING_MARKERS
 
@@ -27,18 +28,58 @@ def _embed(text: str):
     return get_embedder().encode([text])[0]
 
 
+# Harsher wins when two findings land on the same sentence, e.g. a paraphrase
+# finding and a cumulative one. Two edits on one span would apply twice.
+SEVERITY = {"generalise": 0, "redact": 1, "remove": 2}
+
+
 def _plan_edits(findings: list[Finding], escalations: int) -> tuple[list[Edit], bool]:
-    edits: list[Edit] = []
+    by_span: dict[tuple[int, int], Edit] = {}
     hard_block = False
     for f in findings:
         strategy = planner.decide(f, escalations)
         if strategy == "block":
             hard_block = True
             continue
+        key = (f.span.start, f.span.end)
+        if key in by_span and SEVERITY[by_span[key].strategy] >= SEVERITY[strategy]:
+            continue
         e = strategies.build_edit(f, strategy)
         if e:
-            edits.append(e)
-    return edits, hard_block
+            by_span[key] = e
+    return sorted(by_span.values(), key=lambda e: e.span.start), hard_block
+
+
+def _detector_for(findings: list[Finding]):
+    """What the verify loop re-runs on each candidate.
+
+    A cumulative finding (CONTRACT.md #9) is built from near misses: sentences
+    that match an internal document but not strongly enough for detect() to
+    report. Re-running detect() alone would call any such rewrite clean. So
+    for documents with a cumulative finding, a near miss left in the candidate
+    counts as a residual finding too.
+    """
+    docs = {f.matched_source for f in findings if f.confidence == "cumulative" and f.matched_source}
+    if not docs:
+        return detect
+
+    def detect_including_near_misses(candidate: str) -> DetectionResult:
+        result, near_misses = detect_with_near_misses(candidate)
+        extra = [
+            DetectionFinding(
+                type=n.type, sensitivity=n.sensitivity, confidence="cumulative", span=n.span,
+                evidence=Evidence(
+                    matched_source=n.doc, score=n.score,
+                    public_baseline_score=round(n.score - n.margin, 3), margin=n.margin,
+                    excerpt="", matched_chunk=n.chunk,
+                ),
+            )
+            for n in near_misses
+            if n.doc in docs
+        ]
+        return DetectionResult(findings=result.findings + extra)
+
+    return detect_including_near_misses
 
 
 def sanitise(text: str, detection_result: Any = None) -> SanitisationResult:
@@ -72,7 +113,7 @@ def sanitise(text: str, detection_result: Any = None) -> SanitisationResult:
         )
 
     candidate, edits, passes, residual, before, after = verify.run_loop(
-        text, findings, detect, _plan_edits
+        text, findings, _detector_for(findings), _plan_edits
     )
     strategies_used = [planner.decide(f, 0) for f in findings]
     action = planner.prompt_action(strategies_used, residual)
