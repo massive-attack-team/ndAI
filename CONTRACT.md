@@ -417,3 +417,11 @@ unchanged apart from latency: `leak_clearance` 0.8, `block_escalation` 0.2.
 Still open: sanitising can leave a prompt that is only placeholders, for example when
 §8's request-sentence false findings get redacted along with real ones. That's
 review point 1's "is the rewrite still a useful prompt" gap.
+
+**Decided 13 Sep (Hoang Phuc): file scans count towards the context stage as
+built.** `pipeline.inspect_file()` runs each row or page through `inspect()`
+with logging on. So rows of one file count as separate prompts, and a row that
+passes is recorded as sent even if the file is never uploaded. Kept on purpose:
+a document split across rows or files is the piece-at-a-time leak this stage
+exists to catch. The cost is that someone who only scans a file can escalate
+sooner on later prompts.
