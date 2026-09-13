@@ -6,7 +6,12 @@ import type { WireFile } from "./review/channel";
 import { createSession } from "./review/session";
 import { deleteSession, getSession } from "./review/store";
 
-const ENDPOINT = "http://127.0.0.1:8000";
+// Defaults to the local detector (matches the product's actual local-first
+// design - a real install shouldn't silently phone a cloud endpoint). Build
+// with NDAI_API_URL=<hosted-url> npm run build for a demo build that talks
+// to the hosted instance instead, e.g. for recording without a local server
+// running. Same build.mjs `define` the standalone preview page uses.
+const ENDPOINT = __NDAI_API_URL__;
 const DEFAULTS = { user: "unknown", role: "default", failClosed: true, enabled: true };
 
 type Reply = (response?: unknown) => void;
