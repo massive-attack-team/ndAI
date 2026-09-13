@@ -29,49 +29,93 @@ own field.
 ## How it works
 
 ```mermaid
-flowchart LR
-    A["Paste, type or upload"] --> B["1. Secrets scan"]
-    B --> C["2. Company material?"]
-    C --> D["3. Leaking in pieces?"]
-    D --> E{"4. Policy"}
-    E -->|"allow / warn"| F["Sent"]
-    E -->|"rewrite"| G["5. Rewrite, re-check"]
-    G -->|"clean"| F
-    G -->|"still matches"| H["Blocked"]
-    E -->|"block"| H
+flowchart TD
+    IN["Prompt text or an uploaded file<br>csv / md / txt / pdf / xlsx / parquet<br>captured client-side, before it leaves the machine"]
+    SEC["1. Secrets scan<br>Regex patterns + Shannon entropy<br>Catches passwords, keys, and tokens"]
+    DET["2. Detection<br>Internal-corpus match minus best public match<br>+ weak category signal; no training"]
+    CTX["2b. Context<br>This person and team's recent sends<br>Per document"]
+    POL{"3. Policy<br>Sensitivity × destination × role<br>Evaluates policy.yaml"}
+    SAN["4. Sanitiser<br>Redact / generalise / remove<br>Per span"]
+    ALLOW["Allow<br>Send as-is<br>Log outcome"]
+    WARN["Warn<br>Send as-is<br>Log warning"]
+    BLOCK["Block<br>Local model answers instead<br>Prompt never leaves the machine"]
+    LOG[("Audit + context log<br>Hash + redacted preview<br>Never raw text")]
+    CAL["Calibration<br>Per-type threshold from team + user history"]
+
+    IN --> SEC
+    IN --> DET
+    SEC --> POL
+    DET --> POL
+    DET --> CTX
+    CTX -->|Cumulative finding| POL
+
+    POL -->|Allow| ALLOW
+    POL -->|Warn| WARN
+    POL -->|Sanitise| SAN
+    POL -->|Block| BLOCK
+
+    SAN -->|Clears| ALLOW
+    SAN -->|Still leaking after 2 passes| BLOCK
+
+    ALLOW --> LOG
+    WARN --> LOG
+    BLOCK --> LOG
+
+    LOG --> CAL
+    CAL -.->|Adjusts thresholds| DET
+    LOG -.->|Tracks exposure per document| CTX
+
+    classDef input fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a
+    classDef stage fill:#f1f5f9,stroke:#475569,stroke-width:2px,color:#0f172a
+    classDef decision fill:#fff7ed,stroke:#fb923c,stroke-width:3px,color:#7c2d12
+    classDef sanitize fill:#eff6ff,stroke:#3b82f6,stroke-width:2px,color:#1e3a8a
+    classDef allow fill:#f0fdf4,stroke:#4ade80,stroke-width:2px,color:#14532d
+    classDef warn fill:#fffbeb,stroke:#f59e0b,stroke-width:2px,color:#78350f
+    classDef block fill:#fef2f2,stroke:#f87171,stroke-width:2px,color:#7f1d1d
+    classDef log fill:#f5f3ff,stroke:#a78bfa,stroke-width:2px,color:#4c1d95
+
+    class IN input
+    class SEC,DET,CTX stage
+    class POL decision
+    class SAN sanitize
+    class ALLOW allow
+    class WARN warn
+    class BLOCK block
+    class LOG,CAL log
 ```
 
 Each sentence (or file row) is checked separately, so one sensitive line in a
 long message is not diluted.
 
-1. **Secrets scan.** Pattern and entropy checks for keys, passwords and
-   personal data. A live credential is always blocked.
-2. **Company material.** Each sentence is compared with internal and public
-   documents. A match records the source document and its tier: public,
-   internal, confidential or restricted.
-3. **Leaking in pieces.** ndAI records which sections of each internal
-   document a person and their team sent out in the last 14 days. If this
-   message completes enough of one document, it is flagged, even if no single
-   message was. Teams come from `policy.yaml`, never from what people type.
-   > Dana sends Gemini a vague line about buying a company: allowed. Dana later
-   > sends a line about the seller's lawsuit. Together that is 2 of 6 sections
-   > of the restricted acquisition memo: blocked. The same applies if Alex, on
-   > the same team, sends the second line.
-4. **Policy.** Sensitivity against destination:
+- **1. Secrets scan.** Pattern and entropy checks for keys, passwords and
+  personal data. A live credential is always blocked.
+- **2. Detection (company material).** Each sentence is compared with internal
+  and public documents. A match records the source document and its tier:
+  public, internal, confidential or restricted.
+- **2b. Context (leaking in pieces).** ndAI records which sections of each
+  internal document a person and their team sent out in the last 14 days. If
+  this message completes enough of one document, it is flagged, even if no
+  single message was. Teams come from `policy.yaml`, never from what people
+  type.
+  > Dana sends Gemini a vague line about buying a company: allowed. Dana later
+  > sends a line about the seller's lawsuit. Together that is 2 of 6 sections
+  > of the restricted acquisition memo: blocked. The same applies if Alex, on
+  > the same team, sends the second line.
+- **3. Policy.** Sensitivity against destination:
 
-   | Content | Company's own model | Approved vendor | Consumer AI |
-   |---|---|---|---|
-   | Public or internal | Allow | Allow | Allow |
-   | Confidential | Allow | Warn | Rewrite |
-   | Restricted | Allow | Rewrite | Block |
+  | Content | Company's own model | Approved vendor | Consumer AI |
+  |---|---|---|---|
+  | Public or internal | Allow | Allow | Allow |
+  | Confidential | Allow | Warn | Rewrite |
+  | Restricted | Allow | Rewrite | Block |
 
-   Also: topic-only guesses (no matching document) at most warn; contractors
-   are warned on anything internal.
-5. **Rewrite.** Only flagged sentences are edited (detail removed, sentence
-   generalised or dropped). The result is checked again; if it still matches,
-   a stronger edit is tried, then it is blocked after two attempts. If the
-   confidential part is the question itself ("check this calculation"), it is
-   blocked immediately.
+  Also: topic-only guesses (no matching document) at most warn; contractors
+  are warned on anything internal.
+- **4. Sanitiser (rewrite).** Only flagged sentences are edited (detail
+  removed, sentence generalised or dropped). The result is checked again; if
+  it still matches, a stronger edit is tried, then it is blocked after two
+  attempts. If the confidential part is the question itself ("check this
+  calculation"), it is blocked immediately.
 
 On block, nothing is sent. The service can answer locally instead
 (`POST /local-answer`); the extension does not offer this yet.
