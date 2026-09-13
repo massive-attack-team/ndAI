@@ -152,7 +152,7 @@ changes roles or clearance.
 - **Interception is limited to typing, pasting and uploads.** Deeper hooks break the host site on every update.
 - **The public corpus is a snapshot, not a live search.** Recent public news may be flagged. A live lookup would send data out before the decision, which defeats the purpose.
 
-## Run your own detector
+## Getting Started
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
