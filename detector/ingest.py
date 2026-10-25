@@ -13,7 +13,8 @@ import io
 from dataclasses import dataclass
 from pathlib import Path
 
-import pandas as pd
+# pandas is imported inside the spreadsheet readers: it is ~100MB, only file
+# uploads need it, and the hosted detector has 512MB in total.
 
 SUPPORTED = (".txt", ".md", ".pdf", ".csv", ".xlsx", ".parquet")
 
@@ -25,6 +26,8 @@ class Chunk:
 
 
 def _row_to_sentence(row: "pd.Series") -> str:
+    import pandas as pd
+
     return ", ".join(f"{col}: {val}" for col, val in row.items() if pd.notna(val))
 
 
@@ -41,11 +44,15 @@ def _extract_pdf(data: bytes) -> list[Chunk]:
 
 
 def _extract_csv(data: bytes) -> list[Chunk]:
+    import pandas as pd
+
     df = pd.read_csv(io.BytesIO(data))
     return [Chunk(f"row {i}", _row_to_sentence(row)) for i, row in df.iterrows()]
 
 
 def _extract_excel(data: bytes) -> list[Chunk]:
+    import pandas as pd
+
     sheets = pd.read_excel(io.BytesIO(data), sheet_name=None)
     chunks = []
     for sheet_name, df in sheets.items():
@@ -55,6 +62,8 @@ def _extract_excel(data: bytes) -> list[Chunk]:
 
 
 def _extract_parquet(data: bytes) -> list[Chunk]:
+    import pandas as pd
+
     df = pd.read_parquet(io.BytesIO(data))
     return [Chunk(f"row {i}", _row_to_sentence(row)) for i, row in df.iterrows()]
 

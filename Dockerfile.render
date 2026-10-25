@@ -1,0 +1,21 @@
+# Detector API on Render's free plan (512MB). Same model as the Cloud Run image
+# (BAAI/bge-small-en-v1.5), but run through ONNX Runtime via fastembed instead of
+# PyTorch, which is what made Render's free tier run out of memory before.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements-render.txt .
+RUN pip install --no-cache-dir -r requirements-render.txt
+
+COPY . .
+
+# Download the model at build time so a cold start doesn't wait on it.
+ENV NDAI_EMBED=onnx \
+    FASTEMBED_CACHE_PATH=/app/.model_cache \
+    NDAI_HOST=0.0.0.0 \
+    PORT=10000
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5')"
+EXPOSE 10000
+
+CMD ["python", "-m", "detector.main"]

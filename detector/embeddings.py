@@ -22,6 +22,8 @@ class Embedder:
         self._hasher = None
         if backend == "st":
             self._load_st()
+        elif backend == "onnx":
+            self._load_onnx()
         else:
             self._load_hashing()
 
@@ -41,6 +43,27 @@ class Embedder:
             return self._load_hashing()
         log.info("embeddings: sentence-transformers %s", config.ST_MODEL)
 
+    def _load_onnx(self) -> None:
+        # Same model as "st", run through ONNX Runtime instead of PyTorch. Fits in
+        # 512MB (Render's free tier), which sentence-transformers does not.
+        try:
+            from fastembed import TextEmbedding
+        except ImportError:
+            log.warning("fastembed not installed; falling back to hashing")
+            self.backend = "hashing"
+            return self._load_hashing()
+        try:
+            # No memory arena and small batches: the arena otherwise keeps the
+            # peak from embedding the corpus at startup, ~150MB over budget.
+            self._model = TextEmbedding(model_name=config.ST_MODEL, threads=1,
+                                        enable_cpu_mem_arena=False)
+        except Exception as exc:
+            log.warning("could not load %s via fastembed (%s); falling back to hashing",
+                        config.ST_MODEL, exc)
+            self.backend = "hashing"
+            return self._load_hashing()
+        log.info("embeddings: fastembed (ONNX) %s", config.ST_MODEL)
+
     def _load_hashing(self) -> None:
         from sklearn.feature_extraction.text import HashingVectorizer
 
@@ -53,7 +76,7 @@ class Embedder:
     # -- api -----------------------------------------------------------------
     @property
     def is_semantic(self) -> bool:
-        return self.backend == "st"
+        return self.backend in ("st", "onnx")
 
     def encode(self, texts: List[str]) -> np.ndarray:
         if not texts:
@@ -65,6 +88,9 @@ class Embedder:
                     show_progress_bar=False,
                 )
                 return vecs.astype(np.float32)
+            if self.backend == "onnx":
+                vecs = np.asarray(list(self._model.embed(texts, batch_size=8)), dtype=np.float32)
+                return vecs / np.linalg.norm(vecs, axis=1, keepdims=True)
             return np.asarray(self._hasher.transform(texts).todense(), dtype=np.float32)
 
 

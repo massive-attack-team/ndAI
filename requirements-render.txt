@@ -1,0 +1,14 @@
+# requirements.txt without sentence-transformers (PyTorch), plus fastembed
+# (ONNX Runtime). Same embedding model, fits Render free 512MB. Dockerfile.render.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+python-multipart>=0.0.9
+PyYAML>=6.0
+numpy>=1.26
+scikit-learn>=1.4
+pandas>=2.2
+pypdf>=4.0
+openpyxl>=3.1
+pyarrow>=16.0
+fastembed>=0.7

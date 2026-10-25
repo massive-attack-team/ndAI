@@ -1,0 +1,7 @@
+.venv
+**/__pycache__
+dashboard/node_modules
+extension/node_modules
+extension/dist
+.git
+*.db

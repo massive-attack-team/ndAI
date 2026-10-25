@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # --- Embeddings -------------------------------------------------------------
 # "st"      -> sentence-transformers (real semantic matching, needs weights)
+# "onnx"    -> the same model through fastembed/ONNX Runtime, no PyTorch.
+#              Used by Dockerfile.render to fit Render's free 512MB.
 # "hashing" -> char n-gram hashing fallback, no download, DEV ONLY.
 #              It catches verbatim and light edits. It does NOT catch paraphrase,
 #              which is the whole product thesis. Never demo on this backend.
