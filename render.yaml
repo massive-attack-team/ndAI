@@ -1,0 +1,9 @@
+# Render Blueprint for the hosted detector: New > Blueprint, pick this repo and
+# the branch holding this file. Free plan, Docker runtime, ONNX build (512MB).
+services:
+  - type: web
+    name: ndai-detector-onnx
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.render
+    healthCheckPath: /health
