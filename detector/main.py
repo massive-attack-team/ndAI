@@ -34,6 +34,7 @@ app.add_middleware(
         "http://localhost:8787", "http://127.0.0.1:8787",  # extension/preview dev server
         "https://chatgpt.com", "https://claude.ai", "https://gemini.google.com",
         "https://ndai-preview1.vercel.app",  # deployed standalone preview page
+        "https://ndai-try.vercel.app",  # Peter's copy of the preview, on the Render detector
         *_extra_origins,
     ],
     allow_origin_regex=r"^chrome-extension://.*$",
